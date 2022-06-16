@@ -82,7 +82,7 @@ we can observe one big cluster that could be divided in 2 and 2 others clusters 
 
 Let's try to observe the different pvalues of correlation, to determine which feature are correlated.
 ```{r, message=FALSE, warning=FALSE}
-install.packages("Hmisc")
+
 library("Hmisc")
 #This generates one table of correlation coefficients (the correlation matrix) and another table of the p-values. By default, the correlations and p-values #are stored in an object of class type rcorr. To extract the values from this object into a useable data structure, you can use the following syntax:
 gl.rcorr = rcorr(as.matrix(glaucoma[,c(1:62)]))
