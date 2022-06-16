@@ -1,0 +1,74 @@
+---
+title: "assignement2"
+author: "Lilach Herzog & Leslie Cohen"
+date: "13 5 2022"
+output: 
+  word_document: 
+    toc: yes
+    toc_depth: 4
+  pdf_document: 
+    toc_depth: 1
+    fig_caption: yes
+    number_sections: yes
+    fig_height: 3
+editor_options: 
+  chunk_output_Class: inline
+---
+
+Our whole project and code can be found on github at https://github.com/LeslieLebon/assignment-2.git
+
+Our objective in this project was to analyze the “wheat-glaucoma” dataset (where the 'Class' of the seed is the column used for labeling and classifying) using two classifier models that we built. We decided on using the KNN algorithm and the Decision Tree (DT) algorithm.
+
+# preproccessing
+
+## Upload data and libraries
+
+```{r, message=FALSE, warning=FALSE}
+library(gmodels)
+library(C50)
+library(class) 
+library(tidymodels) # for the rsample package, along with the rest of tidymodels
+library(ROCR)
+library(reshape2)
+library(ggpmisc)
+library(ggplot2)
+library(gridExtra)
+library(pROC)
+
+glaucoma <- read.csv("GlaucomaM.csv")# read data
+set.seed(1234)#to initialize a pseudo random number generator. 
+```
+
+
+
+## split into training and test sets
+### initial look at the data
+
+We know the class ‘Class’ is the column (label) to classify according to. We took a quick look at the data as a whole, and specifically the 'Class' column. In order to further understand the data and be able to work with it we also used the "table" function. this function builds a contingency table of the counts at each combination of factor levels- we used it for the 'Class'.
+```{r, message=FALSE, warning=FALSE}
+str(glaucoma) #quick look at the data as a whole
+table(glaucoma$Class) # quick look specifically at the 'Class' column
+```
+The column we want to classify is 'Class'. There are 3 Classs of glaucoma found in in the column 'Class': 1, 2 and 3 (We will sometimes refer to them as Class_1, Class_2 and Class_3, to make it easier to understand and differentiate them from numbers that represent other things). 
+We can see the Class has 66 times Class_1, 68 times Class_2, and 65 times Class_3, about a third of each Class.
+
+Before starting on teaching the algorithm, we converted the 'Class' column to a factor, as that is what is required by the C50 package.
+```{r, message=FALSE, warning=FALSE}
+glaucoma$Class<-as.factor(glaucoma$Class)
+```
+Since the whole table is sorted according to the 'Class' column, and we want to work randomly, we will shuffle the whole table
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+glaucoma <- glaucoma[sample(nrow(glaucoma)),]
+str(glaucoma) #look at the data again to make sure it's shuffled
+```
+
+### Splitting
+```{r, message=FALSE, warning=FALSE}
+length_of_training_set <-round(0.8*(nrow(glaucoma)),0)
+train_set <- glaucoma[1:length_of_training_set, ]
+test_set <- glaucoma[(length_of_training_set+1):nrow(glaucoma), ]
+train_set_Classs <-train_set[, 8]
+test_set_Classs <-test_set[, 8]
+prop.table(table(train_set$Class))
+```
+Since we know that there are about a third of each Class in the data set, we wanted to be sure that the distribution is as we defined (about 1/3 of each Class in of both training and test sets)
