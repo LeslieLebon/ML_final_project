@@ -1,5 +1,5 @@
 ---
-title: "assignement2"
+title: "Final Projrct"
 author: "Lilach Herzog & Leslie Cohen"
 date: "13 5 2022"
 output: 
@@ -36,27 +36,42 @@ library(gridExtra)
 library(pROC)
 library(ggfortify)
 library(corrplot)
+library(tidyverse)    # data manipulation and visualization
+library(kernlab)      # SVM methodology
+library(e1071)        # SVM methodology
+library(ISLR)         # contains example data set "Khan"
+library(RColorBrewer) # customized coloring of plot
 library(dplyr)
 
-
 glaucoma <- read.csv("GlaucomaM.csv")# read data
-set.seed(1234)#to initialize a pseudo random number generator. 
+set.seed(123)#to initialize a pseudo random number generator. 
 ```
 
 
 
-## split into training and test sets
-### initial look at the data
+## look at the data and initial preproccessing
 
-We know the class ‘Class’ is the column (label) to classify according to. We took a quick look at the data as a whole, and specifically the 'Class' column. In order to further understand the data and be able to work with it we also used the "table" function. this function builds a contingency table of the counts at each combination of factor levels- we used it for the 'Class'.
+We want to classify our data according to the' ‘Class’ column
+We took a quick look at the data as a whole, and specifically the ‘Class’ column. In order to further understand the data and be able to work with it we also used the “table” function. this function builds a contingency table of the counts at each combination of factor levels- we used it for the ‘Class’.
+
 ```{r, message=FALSE, warning=FALSE}
-str(glaucoma) #quick look at the data as a whole
-table(glaucoma$Class) # quick look specifically at the 'Class' column
-table(normal$Class)
+head(glaucoma)
+glaucoma%>%select((everything()))%>%summarise_all(funs(sum(is.na(.)))) # check NA's
+print(summary(glaucoma$Class))
 ```
-The column we want to classify is 'Class'. There are 3 Classs of glaucoma found in in the column 'Class': 1, 2 and 3 (We will sometimes refer to them as Class_1, Class_2 and Class_3, to make it easier to understand and differentiate them from numbers that represent other things). 
-We can see the Class has 66 times Class_1, 68 times Class_2, and 65 times Class_3, about a third of each Class.
+We have 196 objects and 63 variables (columns). We looked at the data and saw that there are no NA's we need to take care of, and all columns are numeric, so there is no need to work on that.
+```{r, message=FALSE, warning=FALSE}
+table(glaucoma$Class) # quick look specifically at the 'Class' column
+glaucoma$Class<-as.factor(glaucoma$Class)
+```
 
+The column we want to classify is ‘Class’, and it is divided 2 ' normal' and ' glaucoma' (so we have two classes to classify to), divided neatly in half.
+Before starting on teaching the algorithm, we converted the ‘Class’ column to a factor, as that is what is required by the C50 package.
+
+Since the whole table is already shuffled according to the 'Class' column, we don't need to shuffle the whole table again
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+glaucoma <- glaucoma[sample(nrow(glaucoma)),]
+```
 
 # EDA analysis
 
@@ -177,13 +192,524 @@ glaucoma <- glaucoma[sample(nrow(glaucoma)),]
 str(glaucoma) #look at the data again to make sure it's shuffled
 ```
 
+## split into training and test sets
 ### Splitting
+
+We split the whole data set into 80% training set and 20% test set. Since we know that there are about a half of each Class in the data set, we wanted to be sure that the distribution is as we defined (about 1/2 of each Class in of both training and test sets)
+The training set is what we will use to train the algorithm, to help it learn our data, and then we will run the algorithm on 20% of the data (test set), and predict according to what it learned in the training set, and since it is still our data we have the true class each individual belongs to, so we can evaluate how well the algorithm succeeded in predicting.
 ```{r, message=FALSE, warning=FALSE}
-length_of_training_set <-round(0.8*(nrow(glaucoma)),0)
-train_set <- glaucoma[1:length_of_training_set, ]
-test_set <- glaucoma[(length_of_training_set+1):nrow(glaucoma), ]
-train_set_Classs <-train_set[, 8]
-test_set_Classs <-test_set[, 8]
+length_of_training_set <-round(0.8*(nrow(glaucoma)),0) 
+train_set <- glaucoma[1:length_of_training_set,] #80% of dataset for training
+test_set <- glaucoma[(length_of_training_set+1):nrow(glaucoma), ] #20% of dataset for testing
+train_set_labels <-train_set["Class"] #save true "Classes" of the training set
+test_set_labels <-test_set["Class"] #save true "Classes" of the test set
 prop.table(table(train_set$Class))
 ```
-Since we know that there are about a third of each Class in the data set, we wanted to be sure that the distribution is as we defined (about 1/3 of each Class in of both training and test sets)
+
+
+# SVM
+
+Here we'll use SVM to develop a model similar to those used at the core of the
+Optical Character Recognition (OCR) software often bundled with desktop
+document scanners. The purpose of such software is to process paper-based
+documents by converting printed or handwritten text into an electronic form to be
+saved in a database. Of course, this is a difficult problem due to the many variants
+in handwritten style and printed fonts. Even so, software users expect perfection,
+as errors or typos can result in embarrassing or costly mistakes in a business
+environment. 
+
+According to the documentation provided by Frey and Slate, when the glyphs are
+scanned into the computer, they are converted into pixels and 16 statistical attributes are recorded.
+
+The attributes measure such characteristics as the horizontal and vertical
+dimensions of the glyph, the proportion of black (versus white) pixels, and the
+average horizontal and vertical position of the pixels. Presumably, differences in the
+concentration of black pixels across various areas of the box should provide a way to
+differentiate among the 26 Classs of the alphabet.
+
+As always, we start by reading and looking at the data.
+
+
+One important thing to note when using SVM is that it only works on numeric data, and that
+each feature must be scaled. The data here is already numeric, and the package we use will 
+let us scale the data when running the algorithm itself. So we are good to go!
+
+The data is already randomized, so we can easily create our training and test sets:
+
+
+And to building the actual model:
+
+```{r}
+# create and train model
+Class_classifier <-  ksvm(x=Class~., data=train_set,kernel = "vanilladot")
+Class_classifier
+```
+
+As we mentioned, SVM can be a bit of a black box. We know the model uses 61 support 
+vectors, and that the training error is 0.076433 but we don't know anything else.
+
+Lets run the model on the test set, and see how well our model does.
+
+```{r}
+# apply model on test set
+Class_predictions <- predict(Class_classifier, test_set)
+head(Class_predictions)
+```
+
+To examine how well our classifier performed, we need to compare the predicted
+Class to the true Class in the testing dataset. We'll use the table() function for this
+purpose:
+
+```{r}
+table(Class_predictions, test_set$Class)
+```
+
+To avoid having to calculate an accuracy score from this large confusion matrix, we will use
+the following command, which returns a vector of TRUE or FALSE values, indicating
+whether the model's predicted Class agrees with (that is, matches) the actual
+Class in the test dataset. We will then use it to calculate the percentages.
+
+```{r}
+# calculate true/false values
+agreement <- Class_predictions == test_set$Class
+# true/false preformance percentage
+prop.table(table(agreement))
+df<-data.frame(predictions=c(as.numeric(Class_predictions)),labels = c(test_set$Class))
+pROC_svm <- roc(df$labels,df$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_svm)
+plot(sens.ci, Class="shape", col="lightblue")
+plot(sens.ci, Class="bars")
+```
+
+More than 84% success rate and accuracy of 85.7%, not bad! but can we do better? Lets move on to improving the model performance.
+
+### Improving SVM Model
+
+There are many kernel functions for SVM, but a standard Gaussian Radial basis function (RBF) kernel is a good place to start. We'll use the ksvm() function here. Note that since this is a large dataset, running times can start to add up:
+
+```{r}
+# train svm model with RBF kernel function
+Class_classifier_rbf <- ksvm(Class ~ ., data = train_set, kernel = "rbfdot")
+```
+
+Create a prediction for this new model:
+
+```{r}
+# predict on test set
+Class_predictions_rbf <- predict(Class_classifier_rbf, test_set)
+```
+
+And compare it to the previous model:
+```{r}
+# calculate preformance
+agreement_rbf <- Class_predictions_rbf == test_set$Class
+prop.table(table(agreement_rbf))
+df<-data.frame(predictions=c(as.numeric(Class_predictions_rbf)),labels = c(test_set$Class))
+pROC_svm_imprvd <- roc(df$labels,df$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_svm_imprvd)
+plot(sens.ci, Class="shape", col="lightblue")
+plot(sens.ci, Class="bars")
+```
+
+We can see a substantial increase in accuracy, from 84.6% to 92.3% and AUC of 93.2%. Other kernels might prove even better,
+or the cost of constraints parameter C could be varied to modify the width of the decision boundary. 
+
+Note that even at this point, we are not really sure how SVM classifies the characters (unlike 
+a decision tree lets say), but does it really matter? SVM is good for cases when it does not. 
+
+
+# Example 2 - SVM compared with MMC and SVC
+
+(This example was taken from https://afit-r.github.io/svm)
+
+In cases where the data is linearly separable (can be easily separated with a single line), SVM is not required. We can simply use a Maximal Margin Classifier (MMC) to separate the data. When the data is not linearly separable, we can use a support vector classifier (SVC) (sub-method of SVM). Lets see how the three methods compare:
+
+## MMC
+
+```{r}
+set.seed(123)
+# Construct sample data set - completely separated
+x <- matrix(rnorm(20*2), ncol = 2)
+y <- c(rep(-1,10), rep(1,10))
+x[y==1,] <- x[y==1,] + 3/2
+dat <- data.frame(x=x, y=as.factor(y))
+
+# Plot data
+ggplot(data = dat, aes(x = x.2, y = x.1, color = y, shape = y)) + 
+  geom_point(size = 2) +
+  scale_color_manual(values=c("#000000", "#FF0000")) +
+  theme(legend.position = "none")
+```
+
+We can see that the data can be divided with a single line, but we can still draw an infinite number of such lines. MMC helps us find the best one. First, we use the e1071 package:
+
+```{r}
+# Fit Support Vector Machine model to data set
+svmfit <- svm(y~., data = dat, kernel = "linear", scale = FALSE)
+# Plot Results
+plot(svmfit, dat)
+```
+
+The points marked as X were used to calculate the line, while the points marked with 0 were ignored. 
+
+The same line can be drawn using the kernlab package:
+
+```{r}
+# fit model and produce plot
+kernfit <- ksvm(x, y, Class = "C-svc", kernel = 'vanilladot')
+plot(kernfit, data = x)
+```
+
+## SVC - Support Vector Classifiers
+
+What about when the cases can't be easily separated?
+
+```{r}
+set.seed(457)
+# Construct sample data set - not completely separated
+x <- matrix(rnorm(20*2), ncol = 2)
+y <- c(rep(-1,10), rep(1,10))
+x[y==1,] <- x[y==1,] + 1
+dat <- data.frame(x=x, y=as.factor(y))
+
+# Plot data set
+ggplot(data = dat, aes(x = x.2, y = x.1, color = y, shape = y)) + 
+  geom_point(size = 2) +
+  scale_color_manual(values=c("#000000", "#FF0000")) +
+  theme(legend.position = "none")
+```
+
+Whether the data is separable or not, the svm() command syntax is the same. In the case of data that is not linearly separable, however, the cost = argument takes on real importance. This quantifies the penalty associated with having an observation on the wrong side of the classification boundary. We can plot the fit in the same way as the completely separable case. We first use e1071:
+
+```{r}
+# Fit Support Vector Machine model to data set
+svmfit <- svm(y~., data = dat, kernel = "linear", cost = 10)
+# Plot Results
+plot(svmfit, dat)
+```
+
+Now we use the kernlab package, but also change the cost from 10 to 100.
+
+```{r}
+# Fit Support Vector Machine model to data set
+kernfit <- ksvm(x,y, Class = "C-svc", kernel = 'vanilladot', C = 100)
+# Plot results
+plot(kernfit, data = x)
+```
+
+The higher the value of cost, the more the model tries to avoid a mis-clasification. But how can we decide what is the "best" cost for our data? Instead of specifying a cost up front, we can use the tune() function from e1071 to test various costs and identify which value produces the best fitting model:
+
+```{r}
+# find optimal cost of mis-classification
+tune.out <- tune(svm, y~., data = dat, kernel = "linear",
+                 ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
+# extract the best model
+(bestmod <- tune.out$best.model)
+```
+
+With the optimal cost calculated, we can construct a table of predicted classes against true classes using the predict() command as follows:
+
+```{r}
+ypred <- predict(bestmod, dat)
+(misclass <- table(predict = ypred, truth = dat$y))
+```
+
+Using this support vector classifier did an ok job, but the data we generated was small.
+
+
+## (finally) SVM
+
+The above mentioned SVC is a specific case of SVM, which is a more robust, generalized method. The options for classification structures using the svm() command from the e1071 package are linear, polynomial, radial, and sigmoid. To demonstrate a nonlinear classification boundary, we will construct a new data set:
+
+```{r}
+# construct larger random data set
+x <- matrix(rnorm(200*2), ncol = 2)
+x[1:100,] <- x[1:100,] + 2.5
+x[101:150,] <- x[101:150,] - 2.5
+y <- c(rep(1,150), rep(2,50))
+dat <- data.frame(x=x,y=as.factor(y))
+
+# Plot data
+ggplot(data = dat, aes(x = x.2, y = x.1, color = y, shape = y)) + 
+  geom_point(size = 2) +
+  scale_color_manual(values=c("#000000", "#FF0000")) +
+  theme(legend.position = "none")
+```
+
+Notice that the data is not linearly separable, and furthermore, isn’t all clustered together in a single group. There are two sections of class 1 observations with a cluster of class 2 observations in between. To demonstrate the power of SVMs, we’ll take 100 random observations from the set and use them to construct our boundary. We set kernel = "radial" based on the shape of our data and plot the results.
+
+```{r}
+# set pseudorandom number generator
+set.seed(123)
+# sample training data and fit model
+train <- base::sample(200,100, replace = FALSE)
+svmfit <- svm(y~., data = dat[train,], kernel = "radial", gamma = 1, cost = 1)
+# plot classifier
+plot(svmfit, dat)
+```
+
+The same procedure can be run using the kernlab package, which has far more kernel options than the corresponding function in e1071. In addition to the four choices in e1071, this package allows use of a hyperbolic tangent, Laplacian, Bessel, Spline, String, or ANOVA RBF kernel. To fit this data, we set the cost to be the same as it was before, 1.
+
+```{r}
+# Fit radial-based SVM in kernlab
+kernfit <- ksvm(x[train,],y[train], Class = "C-svc", kernel = 'rbfdot', C = 1, scaled = c())
+# Plot training data
+plot(kernfit, data = x[train,])
+```
+
+Again, using tune to find the best cost for our data:
+
+```{r}
+# tune model to find optimal cost, gamma values
+tune.out <- tune(svm, y~., data = dat[train,], kernel = "radial",
+                 ranges = list(cost = c(0.1,1,10,100,1000)))
+# show best model
+tune.out$best.model
+```
+
+```{r}
+# validate model performance
+(valid <- table(true = dat[-train,"y"], pred = predict(tune.out$best.model,
+                                             newx = dat[-train,])))
+```
+
+# SVM on data with more than 2 classes
+
+```{r}
+# construct data set
+x <- rbind(x, matrix(rnorm(50*2), ncol = 2))
+y <- c(y, rep(0,50))
+x[y==0,2] <- x[y==0,2] + 2.5
+dat <- data.frame(x=x, y=as.factor(y))
+# plot data set
+ggplot(data = dat, aes(x = x.2, y = x.1, color = y, shape = y)) + 
+  geom_point(size = 2) +
+  scale_color_manual(values=c("#000000","#FF0000","#00BA00")) +
+  theme(legend.position = "none")
+```
+
+The commands don’t change for the e1071 package. We specify a cost and tuning parameter γ and fit a support vector machine. The results and interpretation are similar to two-class classification.
+
+```{r}
+# fit model
+svmfit <- svm(y~., data = dat, kernel = "radial", cost = 10, gamma = 1)
+# plot results
+plot(svmfit, dat)
+```
+
+We can check to see how well our model fit the data by using the predict() command, as follows:
+
+```{r}
+# construct table
+ypred <- predict(svmfit, dat)
+(misclass <- table(predict = ypred, truth = dat$y))
+```
+
+The kernlab package, on the other hand, can fit more than 2 classes, but cannot plot the results. To visualize the results of the ksvm function, we take the steps listed below to create a grid of points, predict the value of each point, and plot the results:
+
+```{r}
+# fit and plot
+kernfit <- ksvm(as.matrix(dat[,2:1]),dat$y, Class = "C-svc", kernel = 'rbfdot', 
+                C = 100, scaled = c())
+
+# Create a fine grid of the feature space
+x.1 <- seq(from = min(dat$x.1), to = max(dat$x.1), length = 100)
+x.2 <- seq(from = min(dat$x.2), to = max(dat$x.2), length = 100)
+x.grid <- expand.grid(x.2, x.1)
+
+# Get class predictions over grid
+pred <- predict(kernfit, newdata = x.grid)
+
+# Plot the results
+cols <- brewer.pal(3, "Set1")
+plot(x.grid, pch = 19, col = adjustcolor(cols[pred], alpha.f = 0.05))
+
+classes <- matrix(pred, nrow = 100, ncol = 100)
+contour(x = x.2, y = x.1, z = classes, levels = 1:3, labels = "", add = TRUE)
+
+points(dat[, 2:1], pch = 19, col = cols[predict(kernfit)])
+```
+
+To conclude, SVM is a robust classification method that can be used on easy or difficult datasets 
+to separate data with 2 or more classes.
+Because it's a 'black box', it's very useful as long as you don't need to know what is 
+happening behind the scenes.
+
+#  KNN algorithm
+In the KNN Algorithm, k is a user-defined constant, and an unlabeled vector (a query or test point) is classified by assigning the label which is most frequent among the k training samples nearest to that query point.
+
+## run the KNN algorithm
+And finally, we are ready to run our algorithm. We'll start with K of 3, the the number of Classes we have and also an odd number, reducing the change of a tie vote.
+```{r, message=FALSE, warning=FALSE,results='hide'}
+pred_knn <- knn.cv(train = train_set, cl = train_set_labels, k=21)
+knn_table<-CrossTable(x = test_set_labels, y = pred_knn, prop.chisq=FALSE)
+acc_knn21 <- sum(diag(knn_table[["t"]])) / sum(knn_table[["t"]])
+df<-data.frame(predictions=c(as.numeric(pred_knn)),labels = c(test_set_labels))
+pROC_knn21 <- roc(df$labels,df$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_knn21)
+```
+ Since the knn function returns a factor vector of the predicted values, we'll compare that vector with the true labels we saved in advance. We'll do the comparison with the CrossTable function, from the gmodels package loaded: 
+```{r, message=FALSE, warning=FALSE,results='hide'}
+knn_table<-CrossTable(x = test_set_labels, y = pred_knn, prop.chisq=FALSE)
+```
+```{r, message=FALSE, warning=FALSE,echo=FALSE}
+knn_table[["t"]]
+```
+
+We got an accuracy of 100%!
+We managed to classify our test set perfectly, now we want to see how other parameters will affect our perfect score
+
+### normalization
+We tried normalization, thinking that the range of values of each parameter is similar in order to compare the distances of different features with different scales.
+```{r, results='hide', message=FALSE, warning=FALSE}
+normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
+normalize(c(1, 2, 3, 4, 5)) # test our function 1
+normalize(c(10, 20, 30, 40, 50)) # test our function 2
+train_set_norm <- as.data.frame(lapply(train_set[1:7], normalize))
+test_set_norm <- as.data.frame(lapply(test_set[1:7], normalize))
+summary(train_set_norm$Area) # test our dataset
+```
+Everything looked ok so we went on the the prediction and evaluation of accuracy
+```{r, message=FALSE, warning=FALSE,results='hide'}
+pred_knn_norm <- knn(train = train_set_norm, test = test_set_norm, cl = train_set_labels, k=3)
+knn_norm_table<-CrossTable(x = test_set_labels, y = pred_knn_norm, prop.chisq=FALSE)
+acc_knn3_norm <- sum(diag(knn_norm_table[["t"]])) / sum(knn_norm_table[["t"]])
+df_norm<-data.frame(predictions=c(as.numeric(pred_knn_norm)),labels = c(test_set_labels))
+pROC_norm <- roc(df_norm$labels,df_norm$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_norm)
+```
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+knn_norm_table[["t"]]
+```
+It looks like the normalization actually resulted in decreased accuracy, we plummeted from 1 to 0.925, as well as AUC that decreased from 1 to 0.967...
+In the above table we see that all 17 seeds(100%) of Class 1 were predicted correctly, but it has a few false positives (3 seeds that were wrongly predicted as Class one: one seed was actually Class 2 and 2 were Class 3).
+on the other hand- Classes two and three which had no false positives (all seeds that were predicted as two or three were actually two or 3 respectively) and only a few false negatives (14/15 Class 2 seeds (93.3%) and 6/8 Class 3 seeds (75%) were identified correctly). 
+Let's check z-score
+### z-score standardization
+We also tried z-score standardization instead of normalization:
+```{r, message=FALSE, warning=FALSE, results='hide'}
+train_set_z <- as.data.frame(scale(train_set[1:7]))
+test_set_z <- as.data.frame(scale(test_set[1:7]))
+pred_z <- knn(train = train_set_z, test = test_set_z, cl = train_set_labels, k=3)
+knn_z_table<-CrossTable(x = test_set_labels, y = pred_z, prop.chisq=FALSE)
+acc_knn3_z <- sum(diag(knn_z_table[["t"]])) / sum(knn_z_table[["t"]])
+df_z<-data.frame(predictions=c(as.numeric(pred_z)),labels = c(test_set_labels))
+pROC_z <- roc(df_z$labels,df_z$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_z)
+plot(sens.ci, Class="shape", col="lightblue")
+plot(sens.ci, Class="bars")
+```
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+knn_z_table[["t"]]
+```
+We have the same decreased accuracy of 92.5% as with thhe normalized, but the AUC plummeted from 0.967 to 0.853. We can also see that with the normalization the 2 and 3 Classes had 100% TP and Class_1 had 100% TN, whereas with the z-score only Class_2 has 100% TP and Class_3 100% TN, whereas Class_1 now has 2/15 (11.8%) FN and 1/16 (6.7%) FP, so even though in both cases we had only 3 mistakes, in the normalization we had a problem just with the over-predictions of 1 while the rest was perfect, but with the z-score we have more problems.. 
+
+### different Ks
+We tried with different K's (3, 9 and 15)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+pred_k9 <- knn(train = train_set, test = test_set, cl = train_set_labels, k=9)
+knn9_table<-CrossTable(x = test_set_labels, y = pred_k9, prop.chisq=FALSE)
+acc_knn9 <- sum(diag(knn9_table[["t"]])) / sum(knn9_table[["t"]])
+df_knn9<-data.frame(predictions=c(as.numeric(pred_k9)),labels = c(test_set_labels))
+pROC_knn9 <- roc(df_knn9$labels,df_knn9$predictions,
+            smoothed = TRUE,reuse.auc=TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_knn9)
+
+pred_k15 <- knn(train = train_set, test = test_set, cl = train_set_labels, k=15)
+knn15_table<-CrossTable(x = test_set_labels, y = pred_k15, prop.chisq=FALSE)
+acc_knn15 <- sum(diag(knn15_table[["t"]])) / sum(knn15_table[["t"]])
+df_knn15<-data.frame(predictions=c(as.numeric(pred_k15)),labels = c(test_set_labels))
+pROCdf_knn15 <- roc(df_knn15$labels,df_knn15$predictions,
+            smoothed = TRUE,reuse.auc=TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROCdf_knn15)
+
+pred_k21 <- knn(train = train_set, test = test_set, cl = train_set_labels, k=21)
+knn21_table<-CrossTable(x = test_set_labels, y = pred_k21, prop.chisq=FALSE)
+acc_knn21 <- sum(diag(knn21_table[["t"]])) / sum(knn21_table[["t"]])
+df_knn21<-data.frame(predictions=c(as.numeric(pred_k21)),labels = c(test_set_labels))
+pROCdf_knn21 <- roc(df_knn21$labels,df_knn21$predictions,
+            smoothed = TRUE,reuse.auc=TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROCdf_knn21)
+```
+```{r, message=FALSE, warning=FALSE}
+df_acc_auc<-data_frame(knn=c(3,9,15,21,"3+norm","3+z"), accuracy=c(acc_knn3,acc_knn9,acc_knn15,acc_knn21,acc_knn3_norm,acc_knn3_z),
+                       AUC=c(pROC_knn3[["auc"]],pROC_knn9[["auc"]],pROCdf_knn15[["auc"]],
+                             pROCdf_knn21[["auc"]], pROC_norm[["auc"]], pROC_z[["auc"]]))
+df_acc_auc_melt<-melt(df_acc_auc)
+plotted<-ggplot(data = df_acc_auc_melt, aes(knn,value, fill=variable)) +
+  geom_col(position ='dodge')
+table_norm<-tableGrob(df_acc_auc)
+grid.arrange(plotted+theme(legend.position = "top"), table_norm,ncol=2,nrow=1, widths=c(2,1))
+```
+We tried several more times with different K's ( 9 , 15 and 21) and it looks like the results are pretty similar with AUC of 0.853 for all 3 options. 
+
+With K = 9 we got one FP for Class_2 (it was actually Class_1) and an accuracy of 97.5%.
+With K = 15 we got in addition to the FP in Class two another FP in Class 1 (was actually Class 2), and the accuracy was 95%.
+With K = 21 we don't have any FP in Class two, but 2 FP in Class 1 (was actually Class 2), and the accuracy was also 95% (both 15 and 21 KNNs had 2 mistakes).
+
+### feature selection
+The DT algorithm uses the feature that provides the most Information Gain in every split. Using that logic, the feature that is used the least provides the least information gain, and if it doesn't add much information it might disturb as noise. Thus, since we know that the accuracy of the k-NN algorithm can be severely degraded by the presence of noisy or irrelevant features, we tried the KNN algorithm once more, with K=15 (it might be easier to improve k=15 with 95% than k=9 with 97.5%) and without the "Kernel.Length" column (which attributed the least to the building of the DT). 
+```{r, message=FALSE, warning=FALSE, results='hide'}
+feat_selec<- knn(train = train_set[-4], test = test_set[-4], cl = train_set_labels, k=15)
+knn9_no4_table<-CrossTable(x = test_set_labels, y = feat_selec, prop.chisq=FALSE)
+acc_knn9_no4 <- sum(diag(knn9_no4_table[["t"]])) / sum(knn9_no4_table[["t"]])
+```
+There was no change on accuracy.
+We tried again without Compactness and again without both Compactness and Kernel.Length, and we still got to 97.5% accuracy
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+#no Compactness
+feat_sel_train <- train_set[-3]
+feat_sel_test <- test_set[-3]
+feat_sel_pred <- knn(train = train_set_z, test = test_set_z, cl = train_set_labels, k=15)
+knn9_no3_table<-CrossTable(x = test_set_labels, y = feat_sel_pred, prop.chisq=FALSE)
+acc_knn9_no3 <- sum(diag(knn9_no3_table[["t"]])) / sum(knn9_no3_table[["t"]])
+
+#no Compactness and no Kernel.Length
+feat_sel_train <- feat_sel_train[-3]
+feat_sel_test <- feat_sel_test[-3]
+feat_sel_pred <- knn(train = train_set_z, test = test_set_z, cl = train_set_labels, k=21)
+knn9_no3_4_table<-CrossTable(x = test_set_labels, y = feat_sel_pred, prop.chisq=FALSE)
+acc_knn9_no3_no4 <- sum(diag(knn9_no3_4_table[["t"]])) / sum(knn9_no3_4_table[["t"]])
+```
+
+## knn conclusions
+```{r, message=FALSE, warning=FALSE}
+knn_acuuracy <- data.frame(num_of_neighbors=c(3,9,15,21,"15+selected"),
+                       acuuracy_val=c(acc_knn3,acc_knn9,acc_knn15,acc_knn21, acc_knn9_no4))
+acuuracy_melted <- melt(knn_acuuracy)
+ggplot(data = knn_acuuracy, aes(num_of_neighbors,acuuracy_val , fill=acuuracy_val)) + geom_col()
+```
+
+We managed to classify our data using the KNN algorithm, with k=3 (not normalized or standardized) we got 100% accuracy (and AUC of 1 of course). Our results show that- in general- the higher the k is the less accurate the algorithm is.
+We tried using K=9 and without the "Kernel.Length" (or "Compactness") column, but that didn't help the accuracy at all.
+
