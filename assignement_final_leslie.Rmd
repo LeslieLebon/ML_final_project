@@ -1,5 +1,9 @@
 ---
+   
 title: "Final Project"
+  
+title: "Final Projrct"
+   
 author: "Lilach Herzog & Leslie Cohen"
 date: "13 5 2022"
 output: 
@@ -17,7 +21,7 @@ editor_options:
 
 Our whole project and code can be found on github at https://github.com/LeslieLebon/assignment-2.git
 
-Our objective in this project was to analyze the “wheat-glaucoma” dataset (where the 'Class' of the seed is the column used for labeling and classifying) using two classifier models that we built. We decided on using the KNN algorithm and the Decision Tree (DT) algorithm.
+Our objective in this project was to analyze the “GlaucomaM” dataset (where the 'Class' of the seed is the column used for labeling and classifying) in order to be able to look at a person's data and according to that predict with a certain probability whether or not he might get sick with glaucoma.
 
 # preproccessing
 
@@ -241,8 +245,8 @@ And to building the actual model:
 
 ```{r}
 # create and train model
-Class_classifier <-  ksvm(x=Class~., data=train_set,kernel = "vanilladot")
-Class_classifier
+Class_classifier_vanilladot <-  ksvm(x=Class~., data=train_set,kernel = "vanilladot")
+Class_classifier_vanilladot
 ```
 
 As we mentioned, SVM can be a bit of a black box. We know the model uses 61 support 
@@ -252,17 +256,13 @@ Lets run the model on the test set, and see how well our model does.
 
 ```{r}
 # apply model on test set
-Class_predictions <- predict(Class_classifier, test_set)
+Class_predictions_vanilladot <- predict(Class_classifier_vanilladot, test_set)
 head(Class_predictions)
+table(Class_predictions_vanilladot, test_set$Class)
 ```
 
 To examine how well our classifier performed, we need to compare the predicted
-Class to the true Class in the testing dataset. We'll use the table() function for this
-purpose:
-
-```{r}
-table(Class_predictions, test_set$Class)
-```
+Class to the true Class in the testing dataset, so we used the table() function.
 
 To avoid having to calculate an accuracy score from this large confusion matrix, we will use
 the following command, which returns a vector of TRUE or FALSE values, indicating
@@ -271,34 +271,73 @@ Class in the test dataset. We will then use it to calculate the percentages.
 
 ```{r}
 # calculate true/false values
-agreement <- Class_predictions == test_set$Class
+agreement_vanilladot <- Class_predictions_vanilladot == test_set$Class
 # true/false preformance percentage
-prop.table(table(agreement))
-predictions=c(as.numeric(Class_predictions))
-df<-data.frame(predictions=predictions,labels = c(test_set$Class))
-pROC_svm <- roc(df$labels,df$predictions,
+prop.table(table(agreement_vanilladot))
+df_vanilladot<-data.frame(predictions=c(as.numeric(Class_predictions_vanilladot)),labels = c(test_set$Class))
+   
+pROC_svm_vanilladot <- roc(df_vanilladot$labels,df_vanilladot$predictions,
             smoothed = TRUE,
             ci=TRUE, ci.alpha=0.9, stratified=FALSE,
             plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
             print.auc=TRUE, show.thres=TRUE)
-sens.ci <- ci.se(pROC_svm)
+sens.ci <- ci.se(pROC_svm_vanilladot)
 plot(sens.ci, Class="shape", col="lightblue")
 plot(sens.ci, Class="bars")
+```
 
-# Create a basic roc object
-data(test_set)
-pROC_svm <- roc(test_set$Class, c(as.numeric(Class_predictions)))
-pROC_svm2 <- roc(test_set$Class, c(as.numeric(Class_predictions_rbf)))
+More than 84% success rate and accuracy of 85.7%, not bad! but can we do better? Lets move on to improving the model performance.
 
-if (require(ggplot2)) {
-g <- ggroc(pROC_svm)
-g
+### Improving SVM Model
+
+There are many kernel functions for SVM, but a standard Gaussian Radial basis function (RBF) kernel is a good place to start. We'll use the ksvm() function here. Note that since this is a large dataset, running times can start to add up:
+
+```{r}
+# train svm model with RBF kernel function
+Class_classifier_rbf <- ksvm(Class ~ ., data = train_set, kernel = "rbfdot")
+```
+
+Create a prediction for this new model:
+
+```{r}
+# predict on test set
+Class_predictions_rbf <- predict(Class_classifier_rbf, test_set)
+```
+
+And compare it to the previous model:
+```{r}
+# calculate performance
+agreement_rbf <- Class_predictions_rbf == test_set$Class
+prop.table(table(agreement_rbf))
+df_rbf<-data.frame(predictions=c(as.numeric(Class_predictions_rbf)),labels = c(test_set$Class))
+pROC_svm_rbf <- roc(df$labels,df$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_svm_rbf)
+plot(sens.ci, Class="shape", col="lightblue")
+plot(sens.ci, Class="bars")
+```
+
+We can see a substantial increase in accuracy, from 84.6% to 92.3% and AUC of 93.2%. Other kernels might prove even better,
+or the cost of constraints parameter C could be varied to modify the width of the decision boundary. 
+
+Note that even at this point, we are not really sure how SVM classifies the characters (unlike 
+a decision tree lets say), but does it really matter? SVM is good for cases when it does not. 
+```{r}
+# compare performance
+roc.test(pROC_svm,pROC_svm_rbf)
+g2 <- ggroc(list(vanilladot=pROC_svm_vanilladot, rbf=pROC_svm_rbf))
+g2+theme(legend.position = "top")
+
 # with additional aesthetics:
 ggroc(pROC_svm, alpha = 0.5, colour = "red", linetype = 2, size = 2)
 
 # You can then your own theme, etc.
 g + theme_minimal() + ggtitle("My ROC curve") + 
     geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1), color="grey", linetype="dashed")
+
 
 # And change axis labels to FPR/FPR
 gl <- ggroc(pROC_svm, legacy.axes = TRUE)
@@ -307,12 +346,10 @@ gl + xlab("FPR") + ylab("TPR") +
     geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
 
 # Multiple curves:
-g2 <- ggroc(list(pROC_svm=pROC_svm, pROC_svm2=pROC_svm2))
-g2
+
 
 # This is equivalent to using roc.formula:
-s
-
+roc.list <- roc(Class~., data=glaucoma)
 # You can change the aesthetics as you normally would with ggplot2:
 g.list + scale_colour_brewer(palette="RdGy")
 g.list + scale_colour_manual(values = c("red", "blue", "black"))
@@ -332,49 +369,8 @@ g.list + facet_grid(.~name) + theme(legend.position="none")
 g.group <- ggroc(roc.list, aes="group")
 g.group
 g.group + facet_grid(.~name)
-}
+
 ```
-
-More than 84% success rate and accuracy of 85.7%, not bad! but can we do better? Lets move on to improving the model performance.
-
-### Improving SVM Model
-
-There are many kernel functions for SVM, but a standard Gaussian Radial basis function (RBF) kernel is a good place to start. We'll use the ksvm() function here. Note that since this is a large dataset, running times can start to add up:
-
-```{r}
-# train svm model with RBF kernel function
-Class_classifier_rbf <- ksvm(Class ~ ., data = train_set, kernel = "rbfdot")
-```
-
-Create a prediction for this new model:
-
-```{r}
-# predict on test set
-rbf <- predict(Class_classifier_rbf, test_set)
-```
-
-And compare it to the previous model:
-```{r}
-# calculate preformance
-agreement_rbf <- rbf == test_set$Class
-prop.table(table(agreement_rbf))
-df<-data.frame(predictions=c(as.numeric(rbf)),labels = c(test_set$Class))
-pROC_svm_new_imprvd <- roc(df$labels,df$predictions,
-            smoothed = TRUE,
-            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
-            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
-            print.auc=TRUE, show.thres=TRUE)
-sens.ci <- ci.se(pROC_svm_new_imprvd)
-plot(sens.ci, Class="shape", col="lightblue")
-plot(sens.ci, Class="bars")
-```
-
-We can see a substantial increase in accuracy, from 84.6% to 92.3% and AUC of 93.2%. Other kernels might prove even better,
-or the cost of constraints parameter C could be varied to modify the width of the decision boundary. 
-
-Note that even at this point, we are not really sure how SVM classifies the characters (unlike 
-a decision tree lets say), but does it really matter? SVM is good for cases when it does not. 
-
 
 # Example 2 - SVM compared with MMC and SVC
 
@@ -393,7 +389,7 @@ x[y==1,] <- x[y==1,] + 3/2
 dat <- data.frame(x=x, y=as.factor(y))
 
 # Plot data
-ggplot(data = dat, aes(x = x.2, y = x.1, color = y, shape = y)) + 
+ggplot(data = glaucoma, aes(x = x.2, y = x.1, color = y, shape = y)) + 
   geom_point(size = 2) +
   scale_color_manual(values=c("#000000", "#FF0000")) +
   theme(legend.position = "none")
@@ -415,7 +411,7 @@ The same line can be drawn using the kernlab package:
 ```{r}
 # fit model and produce plot
 kernfit <- ksvm(x, y, Class = "C-svc", kernel = 'vanilladot')
-plot(kernfit, data = x)
+plot(kernfit, data = glaucoma)
 ```
 
 ## SVC - Support Vector Classifiers
