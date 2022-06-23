@@ -4,7 +4,8 @@ editor_options:
     wrap: 72
   chunk_output_type: inline
 output:
-  word_document: default
+  word_document: 
+    fig_width: 10
   html_document:
     self_contained: no
     keep_md: yes
@@ -68,7 +69,7 @@ also used the "table" function. this function builds a contingency table
 of the counts at each combination of factor levels- we used it for the
 'Class'.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, results='hide'}
 head(glaucoma)
 glaucoma%>%select((everything()))%>%summarise_all(funs(sum(is.na(.)))) # check NA's
 print(summary(glaucoma$Class))
@@ -109,7 +110,7 @@ clusters of features.
 > > > > > > > > > > > > > > > > > > > > correlated?????? what do you
 > > > > > > > > > > > > > > > > > > > > think Lilach?
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, results='hide'}
 
 # Preform PCA on our data
 
@@ -125,8 +126,8 @@ gl_pca_plot <- autoplot(gl.pca,
                           colour = 'Class')
   
 
-
-
+```
+```{r, message=FALSE, warning=FALSE}
 gl_pca_plot
 ```
 
@@ -139,9 +140,11 @@ which feature are correlated.
 
 We will try to see if we can observe any correlation between features.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, results='hide'}
 #calculation of correlation, using pearson correlation
 summary(glaucoma)
+```
+```{r, message=FALSE, warning=FALSE}
 gl.cor = cor(glaucoma[,c(1:62)], method = c("pearson"))
 
 corrplot(gl.cor)
@@ -151,7 +154,7 @@ heatmap(x = gl.cor, col = palette, symm = TRUE)
 
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, results='hide'}
 library("Hmisc")
 #This generates one table of correlation coefficients (the correlation matrix) and another table of the p-values. By default, the correlations and p-values #are stored in an object of class type rcorr. To extract the values from this object into a useable data structure, you can use the following syntax:
 gl.rcorr = rcorr(as.matrix(glaucoma[,c(1:62)]))
@@ -169,7 +172,8 @@ data_new <- data[ , !apply(cor_matrix_rm,    # Remove highly correlated variable
                            function(x) any(x > 0.8))]
 head(data_new)
 
-
+```
+```{r, message=FALSE, warning=FALSE}
 gl.cor2 = cor(data_new, method = c("pearson"))
 corrplot(gl.cor2)
 heatmap(x = gl.cor2, col = palette, symm = TRUE)
@@ -187,13 +191,18 @@ gl.pca2 <- prcomp(data_new,
                    center = TRUE,
                    scale. = TRUE)
   
+```
+```{r, message=FALSE, warning=FALSE, results='hide'}
 # summary of the 
 # prcomp object
 summary(gl.pca2)
+```
+```{r, message=FALSE, warning=FALSE}
 gl_pca_plot2 <- autoplot(gl.pca2,
                           data = glaucoma,
                           colour = 'Class')
   
+
 
 
 
@@ -208,7 +217,7 @@ gl_pca_plot
 Before starting on teaching the algorithm, we converted the 'Class'
 column to a factor, as that is what is required by the C50 package.
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, results='hide'}
 glaucoma$Class<-as.factor(glaucoma$Class)
 ```
 
@@ -278,7 +287,7 @@ test sets:
 
 And to building the actual model:
 
-```{r message=TRUE, warning=TRUE}
+```{r message=FALSE, warning=FALSE}
 # create and train model
 Class_classifier_linear <-  ksvm(x=Class~., data=train_set,kernel = "vanilladot")
 Class_classifier_linear
@@ -290,7 +299,7 @@ know anything else.
 
 Lets run the model on the test set, and see how well our model does.
 
-```{r message=TRUE, warning=TRUE}
+```{r message=FALSE, warning=FALSE}
 # apply model on test set
 Class_predictions_linear <- predict(Class_classifier_linear, test_set)
 table(Class_predictions_linear, test_set$Class)
@@ -298,6 +307,7 @@ svm_table_linear<-CrossTable(test_set$Class, Class_predictions_linear,
 prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
 dnn = c('actual Type', 'predicted Type'))
 svm_linear_tbl<-svm_table_linear[["t"]]
+grid.arrange(tableGrob(svm_linear_tbl),ncol=1,nrow=1)
 ```
 
 To examine how well our classifier performed, we need to compare the
@@ -311,13 +321,8 @@ TRUE or FALSE values, indicating whether the model's predicted Class
 agrees with (that is, matches) the actual Class in the test dataset. We
 will then use it to calculate the percentages.
 
-```{r message=TRUE, warning=TRUE}
-svm_linear_stats <- data.frame(kernel="linear",precision=precision(svm_linear_tbl)$.estimate, recall= recall(svm_linear_tbl)$.estimate, accuracy=accuracy(svm_linear_tbl)$.estimate)
-print(svm_linear_stats)
-# calculate true/false values
-agreement_linear <- Class_predictions_linear == test_set$Class
-# true/false preformance percentage
-prop.table(table(agreement_linear))
+```{r message=FALSE, warning=FALSE}
+
 df_linear<-data.frame(predictions=c(as.numeric(Class_predictions_linear)),labels = c(test_set$Class))
 pROC_svm_linear <- roc(df_linear$labels,df_linear$predictions,
             smoothed = TRUE,
@@ -325,8 +330,12 @@ pROC_svm_linear <- roc(df_linear$labels,df_linear$predictions,
             plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
             print.auc=TRUE, show.thres=TRUE)
 sens.ci <- ci.se(pROC_svm_linear)
-plot(sens.ci, Class="shape", col="lightblue")
+plot(sens.ci, Class="shape", col="lightblue", title("linear kernel"))
 plot(sens.ci, Class="bars")
+svm_linear_stats <- data.frame(kernel="linear",precision=precision(svm_linear_tbl)$.estimate, recall= recall(svm_linear_tbl)$.estimate, accuracy=accuracy(svm_linear_tbl)$.estimate, AUC=pROC_svm_linear$au)
+grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
+agreement_linear <- Class_predictions_linear == test_set$Class # calculate true/false values
+prop.table(table(agreement_linear)) # true/false preformance percentage
 ```
 
 The accuracy is  0.846 and the AUC is 0.857. These are pretty good results. We want to make them even better, but what's really important for us is to minimize the false negatives- type II error- since we are working with information about patients, a result telling a person that might be sick that he is healthy can be much more problematic than a result telling a healthy person that he might be sick, and our recall is 0.944.
@@ -339,7 +348,7 @@ basis function (RBF) kernel is a good place to start. We'll use the
 ksvm() function here. Note that since this is a large dataset, running
 times can start to add up:
 
-```{r message=TRUE, warning=TRUE}
+```{r message=FALSE, warning=FALSE}
 # train svm model with RBF kernel function
 Class_classifier_rbf <- ksvm(Class ~ ., data = train_set, kernel = "rbfdot")
 Class_predictions_rbf <- predict(Class_classifier_rbf, test_set) # predict on test set
@@ -351,10 +360,9 @@ svm_rbf_tbl<-svm_table_rbf[["t"]]
 
 And compare it to the previous model:
 
-```{r message=TRUE, warning=TRUE}
+```{r message=FALSE, warning=FALSE}
 # calculate performance
-svm_rbf_stats <- data.frame(kernel="linear",precision=precision(svm_rbf_tbl)$.estimate, recall= recall(svm_rbf_tbl)$.estimate, accuracy=accuracy(svm_rbf_tbl)$.estimate)
-print(svm_rbf_stats)
+
 df_rbf<-data.frame(predictions=c(as.numeric(Class_predictions_rbf)),labels = c(test_set$Class))
 pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions,
             smoothed = TRUE,
@@ -362,8 +370,9 @@ pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions,
             plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
             print.auc=TRUE, show.thres=TRUE)
 sens.ci <- ci.se(pROC_svm_rbf)
-plot(sens.ci, Class="shape", col="lightblue")
+plot(sens.ci, Class="shape", col="lightblue", title("RBF"))
 plot(sens.ci, Class="bars")
+svm_rbf_stats <- data.frame(kernel="rbf",precision=precision(svm_rbf_tbl)$.estimate, recall= recall(svm_rbf_tbl)$.estimate, accuracy=accuracy(svm_rbf_tbl)$.estimate, AUC=pROC_svm_rbf$auc)
 ```
 
 We can see a substantial increase in accuracy, from 84.6% to 92.3% and
@@ -375,22 +384,34 @@ Note that even at this point, we are not really sure how SVM classifies
 the characters (unlike a decision tree lets say), but does it really
 matter? SVM is good for cases when it does not.
 
-```{r message=TRUE, warning=TRUE}
+```{r message=FALSE, warning=FALSE}
 # compare performance
-roc.test(pROC_svm_linear,pROC_svm_rbf)
-g2 <- ggroc(list(vanilladot=pROC_svm_linear, rbf=pROC_svm_rbf))+labs(title = "vanilladot Vs. RBF")
-g2+theme(legend.position = "top")+ labs(color="kernel type")
+roc_test<-roc.test(pROC_svm_linear,pROC_svm_rbf)
+roc_test$estimate
+
+svm_linear_stats[nrow(svm_linear_stats)+1,]=svm_rbf_stats
+grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
+
+g2 <- ggroc(list(vanilladot=pROC_svm_linear, rbf=pROC_svm_rbf))+labs(title = "linear Vs. RBF")
+
+
+# And change axis labels to FPR/FPR
+linear_roc <- ggroc(pROC_svm_linear, legacy.axes = TRUE)+ ggtitle("linear ROC curve") +geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
+rbf_roc <- ggroc(pROC_svm_rbf, legacy.axes = TRUE)+ ggtitle("rbf ROC curve") +geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
+grid.arrange(linear_roc + xlab("FPR") + ylab("TPR"),g2+theme(legend.position = "top")+ labs(color="kernel:"),rbf_roc + xlab("FPR") + ylab("TPR"), ncol=3) 
+
+#for future work
+roc.list <- roc(Class~., data=glaucoma)
+per_feature <- ggroc(roc.list, linetype=2)
+per_feature+ ggtitle("per feature")
 ```
 ```{r message=TRUE, warning=TRUE}
 
 # with additional aesthetics:
-g<- ggroc(pROC_svm_rbf)
+ggroc(pROC_svm_rbf, legacy.axes = TRUE)+geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
 
-# And change axis labels to FPR/FPR
-gl <- ggroc(pROC_svm_rbf, legacy.axes = TRUE)+ ggtitle("rbf ROC curve") 
 
-gl + xlab("FPR") + ylab("TPR") + 
-    geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
+    
 
 # Multiple curves:
 
@@ -400,19 +421,16 @@ roc.list <- roc(Class~., data=glaucoma)
 g.list <- ggroc(roc.list)
 # You can change the aesthetics as you normally would with ggplot2:
 g.list + scale_colour_brewer(palette="RdGy")+ ggtitle("1")
-g.list + scale_colour_manual(values = c("red", "blue", "black"))+ ggtitle("2")
 
 # with additional aesthetics:
-g3 <- ggroc(roc.list, linetype=2)
-g3+ ggtitle("3")
+
 g4 <- ggroc(roc.list, aes="linetype", color="red")
 g4+ ggtitle("4")
 # changing multiple aesthetics:
 g5 <- ggroc(roc.list, aes=c("linetype", "color"))
 g5+ ggtitle("5")
 
-# OR faceting
-g.list + facet_grid(.~Class) + theme(legend.position="none")+ ggtitle("6")
+
 # To have all the curves of the same color, use aes="group":
 g.group <- ggroc(roc.list, aes="group")
 g.group+ ggtitle("7")
