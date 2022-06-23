@@ -145,7 +145,7 @@ colSums(glaucoma[,c(1:62)] != 0)
 
 gl.pca2 <- prcomp(data_new,
                    center = TRUE,
-                   scale. = TRUE)
+                   scale. = TRUE)#play with options
   
 # summary of the 
 # prcomp object
