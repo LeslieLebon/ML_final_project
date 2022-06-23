@@ -43,7 +43,7 @@ library(class)
 library(tidymodels) # for the rsample package, along with the rest of tidymodels
 library(ROCR)
 library(reshape2)
-library(ggpmisc)
+#library(ggpmisc)
 library(ggplot2)
 library(gridExtra)
 library(pROC)
@@ -924,3 +924,322 @@ course). Our results show that- in general- the higher the k is the less
 accurate the algorithm is. We tried using K=9 and without the
 "Kernel.Length" (or "Compactness") column, but that didn't help the
 accuracy at all.
+
+
+## Random forest
+
+We begin by loading the required libraries:
+
+```{r setup}
+library(tidymodels) # for the rsample package, along with the rest of tidymodels
+library(modeldata)  # for the cells data
+library(vip)        # for variable importance plots
+```
+
+We have data for 196 patients, with 63 features. The main outcome variable of interest for us here is called class, which is a factor.Each row is a patient, classified as "glaucoma"  or "normal" . If we can predict these labels accurately, the larger data set can be improved by filtering out the cells most likely to be poorly segmented.
+
+
+An important aspect when performing prediction is the class balance, lets take a look:
+
+```{r}
+glaucoma %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+```
+
+We have 50% 'glaucoma' patients and 50% 'normal' patients. We can make the splits with the same proportions as the original data (50/50).
+
+## Data Splitting
+
+To split data, we are using the strata argument, which conducts a stratified split. This ensures that, despite the imbalance we noticed in our class variable, our training and test data sets will keep roughly the same proportions of sick andnormal patients as in the original data.
+
+```{r}
+set.seed(123)
+patient_split <- initial_split(glaucoma, 
+                            strata = Class)
+
+glaucoma_train <- training(patient_split)
+glaucoma_test  <- testing(patient_split)
+
+nrow(glaucoma_train)
+nrow(glaucoma_train)/nrow(glaucoma)
+
+# training set proportions by class
+glaucoma_train %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+
+# test set proportions by class
+glaucoma_test %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+```
+
+## Random Forest Modeling
+
+The random Forest algorithm uses many decision trees. For classification, which is what
+we are focusing on, the final class result is based on the class that was picked from most trees. 
+
+First we define our model with the parsnip package. Random forests have very little mandatory parameters. 
+Here we only define the number of trees:
+
+```{r}
+# create random forest model
+rf_mod <- 
+  rand_forest(trees = 1000) %>% 
+  set_engine("ranger") %>%   # engine - method of estimation the model will use
+  set_mode("classification")
+```
+
+We want reproducible results, so we set.seed. Taking a look at the model:
+
+```{r}
+# train model
+library(ranger)
+set.seed(234)
+rf_fit <- 
+  rf_mod %>% 
+  fit(Class ~ ., data = glaucoma_train)
+rf_fit
+```
+
+We can see our model had 1000 trees like we specified, and several other metrics, such as the prediction error, 13% here.
+
+## Estimating performance
+
+Next we want to see if we can improve our model. We do this by changing some things about it. 
+The changes can either be random (guessing) or more precise, depending on performance metrics. In our example, we will use the area under the Receiver Operating Characteristic (ROC) curve (which demonstrates the trade-off between the sensitivity and and specificity), and overall classification accuracy.
+
+Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the glaucoma_train partition of our data:
+
+```{r}
+rf_training_pred <- 
+  predict(rf_fit, glaucoma_train) %>% 
+  bind_cols(predict(rf_fit, glaucoma_train, type = "prob")) %>% 
+  # Add the true outcome data back in
+  bind_cols(glaucoma_train %>% 
+              select(Class))
+
+# ROC calculation
+rf_training_pred %>%                # training set predictions
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation
+rf_training_pred %>%                # training set predictions
+  accuracy(truth = Class, .pred_class)
+
+
+```
+
+As we can see, these are very good results. Almost too good....Lets see how the model performs on the test data:
+
+```{r}
+rf_testing_pred <- 
+  predict(rf_fit, glaucoma_test) %>% 
+  bind_cols(predict(rf_fit, glaucoma_test, type = "prob")) %>% 
+  bind_cols(glaucoma_test %>% select(Class))
+
+# ROC calculation
+rf_testing_pred %>%                   # test set predictions
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation
+rf_testing_pred %>%                   # test set predictions
+  accuracy(truth = Class, .pred_class)
+```
+
+These validation results are lower than the ones we got on the training data.
+There are several reasons why training set statistics like the ones shown in this section can be unrealistically optimistic:
+
+- Overfitting - Models like random forests, neural networks, and other black-box methods can essentially memorize the training set. Re-predicting that same set should always result in nearly perfect results.
+
+- The training set does not have the capacity to be a good arbiter of performance. It is not an independent piece of information; predicting the training set can only reflect what the model already knows.
+
+## Resampling
+
+Resampling methods, such as cross-validation and the bootstrap, are empirical simulation systems. They create a series of data sets similar to the training/testing split discussed previously; a subset of the data is used for creating the model and a different subset is used to measure performance. Resampling is always used with the training set. 
+
+Here we'll use 10-fold cross-validation. This means that we'll create 10 "mini" datasets, or folds. We call the majority part of the folds (9 out of 10 in this case) the "analysis set" and the minority the "assessment set". We then train a model using the analysis set, and test it on the assessment set, effectively repeating the modeling process 10 times. This is how its done:
+
+```{r}
+# create the folds
+set.seed(345)
+folds <- vfold_cv(glaucoma_train, v = 10)
+folds
+
+# here we use a workflow, which bundles together the model specifications and actual modeling
+# set the random forest workflow 
+rf_wf <- 
+  workflow() %>%
+  add_model(rf_mod) %>%
+  add_formula(Class ~ .)
+
+# add folds to workflow and train model
+set.seed(456)
+rf_fit_rs <- 
+  rf_wf %>% 
+  fit_resamples(folds)
+
+rf_fit_rs
+
+collect_metrics(rf_fit_rs)
+```
+
+We see these results are lower and look more realistic.
+Now, looking at the test set for results, we expect and see much more similar results to the above ROC and accuracy:
+
+```{r}
+# ROC calculation on test predictions
+rf_testing_pred %>%             
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation on test predictions
+rf_testing_pred %>%           
+  accuracy(truth = Class, .pred_class)
+```
+
+
+## Tuning hyperparameters
+
+Another way to improve the performance of our models is by changing the parameters we provide them with. This is also called Tuning. Random Forests, as mentioned above, are not very sensitive to such parameters, but decision trees are. Lets see:
+
+```{r}
+# defining the parameters for the decision tree
+tune_spec <- 
+  decision_tree(
+    cost_complexity = tune(), # to control the size of the tree
+    tree_depth = tune()
+  ) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+
+tune_spec
+```
+
+Note that in the above code, tune() is still just a placeholder. 
+We will fill in values later on.
+
+Next, we will create several smaller datasets, to try different parameters. 
+The grid_regular command below will create 5 such datasets for each parameter combination, meaning 25 in total.
+
+```{r}
+# create 5 'datasets' with different combinations
+tree_grid <- grid_regular(cost_complexity(), 
+                          tree_depth(),
+                          levels = 5)
+
+tree_grid
+
+tree_grid %>% 
+  count(tree_depth)
+
+set.seed(234)
+glaucoma_folds <- vfold_cv(glaucoma_train) # create the actual cross-validation folds
+```
+## Model tuning with a grid
+
+```{r}
+set.seed(345)
+# define the workflow
+tree_wf <- workflow() %>%
+  add_model(tune_spec) %>%
+  add_formula(Class ~ .)
+
+# update and train workflow with grids
+tree_res <- 
+  tree_wf %>% 
+  tune_grid(
+    resamples = glaucoma_folds,
+    grid = tree_grid
+    )
+
+tree_res
+
+tree_res %>% 
+  collect_metrics()
+```
+Its easier to see how the models did with a graph:
+
+```{r}
+# plot preformance
+tree_res %>%
+  collect_metrics() %>%
+  mutate(tree_depth = factor(tree_depth)) %>%
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+We can see that our tree with a depth of 1, is the worst model according to both metrics and across all candidate values of cost_complexity. Our deepest tree, with a depth of 15, did better.  The show_best() function shows us the top 5 candidate models by default:
+
+```{r}
+# best tree
+tree_res %>%
+  show_best("roc_auc")
+```
+
+And finally, let's finalize the workflow with the best tree. 
+
+```{r}
+best_tree <- tree_res %>%
+  select_best("roc_auc") # Selecting the best tree
+
+best_tree
+
+# Finalize workflow
+final_wf <- 
+  tree_wf %>% 
+  finalize_workflow(best_tree)
+
+final_wf
+```
+## Exploring results
+
+So we have our best tree parameters. Lets take a better look:
+
+```{r}
+final_tree <- 
+  final_wf %>%
+  fit(data = glaucoma_train) 
+
+final_tree
+```
+
+Another way to look at how the model uses the different features is using the vip package:
+
+```{r}
+#final_tree %>% 
+ # pull_workflow_fit() %>% 
+  #vip()
+
+final_tree %>% 
+  extract_fit_parsnip() %>% 
+  vip()
+```
+
+## Finalizing the model
+
+Finally, let’s return to our test data and estimate the model performance we expect to see with new data. We can use the function last_fit() with our finalized model; this function fits the finalized model on the full training data set and evaluates the finalized model on the testing data.
+
+```{r}
+# Set workflow
+final_fit <- 
+  final_wf %>%
+  last_fit(patient_split) 
+
+# train
+final_fit %>%
+  collect_metrics()
+
+# collect metrics
+final_fit %>%
+  collect_predictions() %>% 
+  roc_curve(Class, .pred_glaucoma) %>% 
+  autoplot()
+
+args(decision_tree)
+```
+We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions.
