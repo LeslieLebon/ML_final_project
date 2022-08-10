@@ -43,7 +43,7 @@ library(class)
 library(tidymodels) # for the rsample package, along with the rest of tidymodels
 library(ROCR)
 library(reshape2)
-library(ggpmisc)
+#library(ggpmisc)
 library(ggplot2)
 library(gridExtra)
 library(pROC)
@@ -114,14 +114,14 @@ clusters of features.
 
 # Preform PCA on our data
 
-gl_pca <- prcomp(glaucoma[,1:62])
-
-gl_pca_x<-gl_pca[["x"]]
-
+gl.pca <- prcomp(glaucoma[,1:62],
+                   center = TRUE,
+                   scale. = TRUE)
+  
 # summary of the 
 # prcomp object
-summary(gl_pca)
-gl_pca_plot <- autoplot(gl_pca,
+summary(gl.pca)
+gl_pca_plot <- autoplot(gl.pca,
                           data = glaucoma,
                           colour = 'Class')
   
@@ -166,44 +166,48 @@ cor_matrix_rm[upper.tri(cor_matrix_rm)] <- 0
 diag(cor_matrix_rm) <- 0
 cor_matrix_rm
 
-```
-try different params
-```{r, message=FALSE, warning=FALSE, results='hide'}
-
-data<-train_set
-data_new_85 <- data[ , !apply(cor_matrix_rm, 2, function(x) any(x > 0.85))]
-data_new_80 <- data[ , !apply(cor_matrix_rm, 2, function(x) any(x > 0.8))]
-data_new_75 <- data[ , !apply(cor_matrix_rm, 2, function(x) any(x > 0.75))]
-
-# Preform PCA on our new data
-gl_pca_85 <- prcomp(data_new_85)
-gl_pca_80 <- prcomp(data_new_80)
-gl_pca_75 <- prcomp(data_new_75)
+data<-glaucoma[,c(1:62)]
+data_new <- data[ , !apply(cor_matrix_rm,    # Remove highly correlated variables
+                           2,
+                           function(x) any(x > 0.8))]
+head(data_new)
 
 ```
-
 ```{r, message=FALSE, warning=FALSE}
-#what is this for?
+gl.cor2 = cor(data_new, method = c("pearson"))
+corrplot(gl.cor2)
+heatmap(x = gl.cor2, col = palette, symm = TRUE)
 colSums(glaucoma[,c(1:62)] != 0)
 
 
 ```
 
 ```{r, message=FALSE, warning=FALSE}
-gl_pca_plot_85 <- autoplot(gl_pca_85,
+
+########
+# Preform PCA on our new data
+
+gl.pca2 <- prcomp(data_new,
+                   center = TRUE,
+                   scale. = TRUE)#play with options
+  
+```
+```{r, message=FALSE, warning=FALSE, results='hide'}
+# summary of the 
+# prcomp object
+summary(gl.pca2)
+```
+```{r, message=FALSE, warning=FALSE}
+gl_pca_plot2 <- autoplot(gl.pca2,
                           data = glaucoma,
                           colour = 'Class')
-gl_pca_plot_80 <- autoplot(gl_pca_80,
-                          data = glaucoma,
-                          colour = 'Class')
-gl_pca_plot_75 <- autoplot(gl_pca_75,
-                          data = glaucoma,
-                          colour = 'Class')
+  
+
+
+
+
+gl_pca_plot2
 gl_pca_plot
-gl_pca_plot_85
-gl_pca_plot_80
-gl_pca_plot_75
-grid.arrange(gl_pca_plot,gl_pca_plot_85,gl_pca_plot_80,gl_pca_plot_75, ncol=2,nrow=2)
 
 ```
 
@@ -247,149 +251,6 @@ train_set_labels <-train_set["Class"] #save true "Classes" of the training set
 test_set_labels <-test_set["Class"] #save true "Classes" of the test set
 prop.table(table(train_set$Class))
 ```
-
-
-
-
-When the data is not linearly separable, we can use a support vector classifier (SVC)
-(sub-method of SVM) or even SVM. 
-
-## MMC
-In cases where the data is linearly separable (can be easily separated we can simply use a Maximal Margin Classifier (MMC) to separate the data. We will use the data as we procured it from the PCA and dimentionality reduction.
-In the PCA, we saw that most of glaucoma patients and normal
-patients are clustered in 2 groups, but some of them are mixed, probably due to the fact that many features correlate.
-```{r}
-# Construct sample data set - we'll randomly choose 2 features for the axes
-y2=train_set[63]
-y=train_set[,63]
-train_pca <- prcomp(train_set[,1:62],
-                   center = TRUE,
-                   scale. = TRUE)
-dat_train <- data.frame(x=as.matrix(train_pca[["x"]]), y=as.factor(train_set[,63]))
-dat_train_85 <- data.frame(x=as.matrix(gl_pca_85[["x"]]), y=as.factor(train_set[,63]))
-dat_train_80 <- data.frame(x=as.matrix(gl_pca_80[["x"]]), y=as.factor(train_set[,63]))
-dat_train_75 <- data.frame(x=as.matrix(gl_pca_75[["x"]]), y=as.factor(train_set[,63]))
-
-
-# Plot data
-gg_train<-ggplot(data = dat_train, aes(x = x.PC1, y = x.PC2, color = y, shape = y)) + 
-  geom_point(size = 2) +
-  scale_color_manual(values=c("#000000", "#FF0000")) +
-  theme(legend.position = "none")
-gg_train_85<-ggplot(data = dat_train_85, aes(x = x.PC1, y = x.PC2, color = y, shape = y)) + 
-  geom_point(size = 2) +
-  scale_color_manual(values=c("#000000", "#FF0000")) +
-  theme(legend.position = "none")
-gg_train_80<-ggplot(data = dat_train_80, aes(x = x.PC1, y = x.PC2, color = y, shape = y)) + 
-  geom_point(size = 2) +
-  scale_color_manual(values=c("#000000", "#FF0000")) +
-  theme(legend.position = "none")
-gg_train_75<-ggplot(data = dat_train_75, aes(x = x.PC1, y = x.PC2, color = y, shape = y)) + 
-  geom_point(size = 2) +
-  scale_color_manual(values=c("#000000", "#FF0000")) +
-  theme(legend.position = "none")
-
-grid.arrange(gg_train,gg_train_85,gg_train_80,gg_train_75, ncol=2,nrow=2)
-
-```
-
-```{r}
-# Construct sample data set - we'll randomly choose 2 features for the axes
-train_pca <- prcomp(glaucoma[,1:62],
-                   center = TRUE,
-                   scale. = TRUE)
-
-
-
-
-train_pca_plot <- autoplot(train_pca,
-                          data = glaucoma,
-                          colour = 'Class')
-x<-as.matrix(train_pca_plot[["data"]][1:65])
-y <- x[,"Class"]
-
-dat_train <- data.frame(x=x[,1:64], y=as.factor(y))
-
-# Plot data
-ggplot(data = dat_train[,1:2], aes(x = x.PC1, y = x.PC2, color = y, shape = y)) + 
-  geom_point(size = 2) +
-  scale_color_manual(values=c("#000000", "#FF0000")) +
-  theme(legend.position = "none")
-```
-
-We can see that the data can be divided with a single line, but we can
-still draw an infinite number of such lines. MMC helps us find the best
-one. First, we use the e1071 package:
-
-```{r}
-# Fit Support Vector Machine model to data set
-svmfit <- svm(Class~., data = train_set, kernel = "linear", scale = FALSE)
-# Plot Results
-plot(svmfit ,train_set) 
-```
-
-The points marked as X were used to calculate the line, while the points
-marked with 0 were ignored.
-
-The same line can be drawn using the kernlab package:
-
-```{r}
-# fit model and produce plot
-
-kernfit <- ksvm(x=y~., data=dat_train, Class = "C-svc", kernel = 'vanilladot')
-#plot(kernfit, data = dat_train)
-Class_predictions_linear <- predict(kernfit, test_set)
-table(Class_predictions_linear, test_set$Class)
-svm_table_linear<-CrossTable(test_set$Class, Class_predictions_linear,
-prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
-dnn = c('actual Type', 'predicted Type'))
-svm_linear_tbl<-svm_table_linear[["t"]]
-grid.arrange(tableGrob(svm_linear_tbl),ncol=1,nrow=1)
-```
-
-## SVC - Support Vector Classifiers
-
-What about when the cases can't be easily separated?
-
-Whether the data is separable or not, the svm() command syntax is the
-same. In the case of data that is not linearly separable, however, the
-cost = argument takes on real importance. This quantifies the penalty
-associated with having an observation on the wrong side of the
-classification boundary. We can plot the fit in the same way as the
-completely separable case. We first use e1071:
-
-
-The higher the value of cost, the more the model tries to avoid a
-mis-clasification. But how can we decide what is the "best" cost for our
-data? Instead of specifying a cost up front, we can use the tune()
-function from e1071 to test various costs and identify which value
-produces the best fitting model:
-
-```{r}
-# find optimal cost of mis-classification
-tune.out <- tune(svm, y~., data = dat_train, kernel = "linear",
-                 ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
-# extract the best model
-(bestmod <- tune.out$best.model)
-ypred <- predict(bestmod, dat_train)
-(misclass <- table(predict = ypred, truth = dat_train$y))
-grid.arrange(tableGrob(misclass),ncol=1,nrow=1)
-
-Class_predictions_linear <- predict(Class_classifier_linear, test_set)
-table(Class_predictions_linear, test_set$Class)
-svm_table_linear<-CrossTable(test_set$Class, Class_predictions_linear,
-prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
-dnn = c('actual Type', 'predicted Type'))
-svm_linear_tbl<-svm_table_linear[["t"]]
-grid.arrange(tableGrob(svm_linear_tbl),ncol=1,nrow=1)
-
-```
-
-With the optimal cost calculated, we can construct a table of predicted
-classes against true classes using the predict() .
-
-Using this support vector classifier did an ok job, but the data we
-generated was small.
 
 # SVM
 
@@ -471,7 +332,7 @@ pROC_svm_linear <- roc(df_linear$labels,df_linear$predictions,
 sens.ci <- ci.se(pROC_svm_linear)
 plot(sens.ci, Class="shape", col="lightblue", title("linear kernel"))
 plot(sens.ci, Class="bars")
-svm_linear_stats <- data.frame(method="linear_kernel",precision=precision(svm_linear_tbl)$.estimate, recall= recall(svm_linear_tbl)$.estimate, accuracy=accuracy(svm_linear_tbl)$.estimate, AUC=pROC_svm_linear$au)
+svm_linear_stats <- data.frame(kernel="linear",precision=precision(svm_linear_tbl)$.estimate, recall= recall(svm_linear_tbl)$.estimate, accuracy=accuracy(svm_linear_tbl)$.estimate, AUC=pROC_svm_linear$au)
 grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
 agreement_linear <- Class_predictions_linear == test_set$Class # calculate true/false values
 prop.table(table(agreement_linear)) # true/false preformance percentage
@@ -481,33 +342,6 @@ The accuracy is  0.846 and the AUC is 0.857. These are pretty good results. We w
 We still want to see, maybe a different kernel will do a better job?
 
 ### Improving SVM Model
-```{r}
-# find optimal cost of mis-classification
-tune.out <- tune(svm, Class~., data = train_set, kernel = "linear",
-                 ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
-# extract the best model
-bestmod <- tune.out$best.model
-ypred <- predict(bestmod, test_set)
-misclass <- table(predict = ypred, truth = test_set$Class)
-grid.arrange(tableGrob(misclass),ncol=1,nrow=1)
-
-df_bestmod<-data.frame(predictions=c(as.numeric(ypred)),labels = c(test_set$Class))
-pROC_svm_linear_bestmod <- roc(df_bestmod$labels,df_bestmod$predictions,
-            smoothed = TRUE,
-            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
-            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
-            print.auc=TRUE, show.thres=TRUE)
-
-nrow=nrow(svm_linear_stats)+1
-svm_linear_stats <- data.frame(method=matrix(c(svm_linear_stats$method,"bestmod with tune.out"),nrow=nrow),
-                               precision=matrix(c(svm_linear_stats$precision, precision(misclass)$.estimate),nrow=nrow),
-                               recall=matrix(c(svm_linear_stats$recall, recall(misclass)$.estimate),nrow=nrow),
-                               accuracy=matrix(c(svm_linear_stats$accuracy, accuracy(misclass)$.estimate),nrow=nrow),
-                        AUC=matrix(c(svm_linear_stats$AUC,pROC_svm_linear_bestmod$au),nrow=nrow))
-
-grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
-
-```
 
 There are many kernel functions for SVM, but a standard Gaussian Radial
 basis function (RBF) kernel is a good place to start. We'll use the
@@ -524,7 +358,7 @@ dnn = c('actual Type', 'predicted Type'))
 svm_rbf_tbl<-svm_table_rbf[["t"]]
 ```
 
-And compare it to the previous models:
+And compare it to the previous model:
 
 ```{r message=FALSE, warning=FALSE}
 # calculate performance
@@ -538,50 +372,13 @@ pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions,
 sens.ci <- ci.se(pROC_svm_rbf)
 plot(sens.ci, Class="shape", col="lightblue", title("RBF"))
 plot(sens.ci, Class="bars")
-
-nrow=nrow(svm_linear_stats)+1
-svm_linear_stats <- data.frame(method=matrix(c(svm_linear_stats$method,"rbf"),nrow=nrow),
-                               precision=matrix(c(svm_linear_stats$precision, precision(svm_rbf_tbl)$.estimate),nrow=nrow),
-                               recall=matrix(c(svm_linear_stats$recall, recall(svm_rbf_tbl)$.estimate),nrow=nrow),
-                               accuracy=matrix(c(svm_linear_stats$accuracy, accuracy(svm_rbf_tbl)$.estimate),nrow=nrow), 
-                          AUC=matrix(c(svm_linear_stats$AUC,pROC_svm_rbf$au),nrow=nrow))
-
-
-grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
+svm_rbf_stats <- data.frame(kernel="rbf",precision=precision(svm_rbf_tbl)$.estimate, recall= recall(svm_rbf_tbl)$.estimate, accuracy=accuracy(svm_rbf_tbl)$.estimate, AUC=pROC_svm_rbf$auc)
 ```
 
 We can see a substantial increase in accuracy, from 84.6% to 92.3% and
 AUC of 93.2%. Other kernels might prove even better, or the cost of
 constraints parameter C could be varied to modify the width of the
 decision boundary.
-
-```{r}
-# find optimal cost of mis-classification
-tune.out <- tune(svm, Class~., data = train_set, kernel = "radial",
-                 ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
-# extract the best model
-bestmod <- tune.out$best.model
-ypred <- predict(bestmod, test_set)
-misclass <- table(predict = ypred, truth = test_set$Class)
-grid.arrange(tableGrob(misclass),ncol=1,nrow=1)
-
-df_bestmod<-data.frame(predictions=c(as.numeric(ypred)),labels = c(test_set$Class))
-pROC_svm_linear_bestmod <- roc(df_bestmod$labels,df_bestmod$predictions,
-            smoothed = TRUE,
-            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
-            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
-            print.auc=TRUE, show.thres=TRUE)
-
-nrow=nrow(svm_linear_stats)+1
-svm_linear_stats <- data.frame(method=matrix(c(svm_linear_stats$method,"tune.out with rbfdot"),nrow=nrow),
-                               precision=matrix(c(svm_linear_stats$precision, precision(misclass)$.estimate),nrow=nrow),
-                               recall=matrix(c(svm_linear_stats$recall, recall(misclass)$.estimate),nrow=nrow),
-                               accuracy=matrix(c(svm_linear_stats$accuracy, accuracy(misclass)$.estimate),nrow=nrow),
-                        AUC=matrix(c(svm_linear_stats$AUC,pROC_svm_linear_bestmod$au),nrow=nrow))
-
-grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
-
-```
 
 Note that even at this point, we are not really sure how SVM classifies
 the characters (unlike a decision tree lets say), but does it really
@@ -639,7 +436,121 @@ g.group <- ggroc(roc.list, aes="group")
 g.group+ ggtitle("7")
 
 ```
+# Example 2 - SVM compared with MMC and SVC
 
+(This example was taken from <https://afit-r.github.io/svm>)
+
+In cases where the data is linearly separable (can be easily separated
+with a single line), SVM is not required. We can simply use a Maximal
+Margin Classifier (MMC) to separate the data. When the data is not
+linearly separable, we can use a support vector classifier (SVC)
+(sub-method of SVM). Lets see how the three methods compare:
+
+## MMC
+
+```{r}
+set.seed(123)
+# Construct sample data set - completely separated
+x <- matrix(rnorm(20*2), ncol = 2)
+y <- c(rep(-1,10), rep(1,10))
+x[y==1,] <- x[y==1,] + 3/2
+dat <- data.frame(x=x, y=as.factor(y))
+
+# Plot data
+ggplot(data = glaucoma, aes(x = x.2, y = x.1, color = y, shape = y)) + 
+  geom_point(size = 2) +
+  scale_color_manual(values=c("#000000", "#FF0000")) +
+  theme(legend.position = "none")
+```
+
+We can see that the data can be divided with a single line, but we can
+still draw an infinite number of such lines. MMC helps us find the best
+one. First, we use the e1071 package:
+
+```{r}
+# Fit Support Vector Machine model to data set
+svmfit <- svm(y~., data = dat, kernel = "linear", scale = FALSE)
+# Plot Results
+plot(svmfit, dat)
+```
+
+The points marked as X were used to calculate the line, while the points
+marked with 0 were ignored.
+
+The same line can be drawn using the kernlab package:
+
+```{r}
+# fit model and produce plot
+kernfit <- ksvm(x, y, Class = "C-svc", kernel = 'vanilladot')
+plot(kernfit, data = glaucoma)
+```
+
+## SVC - Support Vector Classifiers
+
+What about when the cases can't be easily separated?
+
+```{r}
+set.seed(457)
+# Construct sample data set - not completely separated
+x <- matrix(rnorm(20*2), ncol = 2)
+y <- c(rep(-1,10), rep(1,10))
+x[y==1,] <- x[y==1,] + 1
+dat <- data.frame(x=x, y=as.factor(y))
+
+# Plot data set
+ggplot(data = dat, aes(x = x.2, y = x.1, color = y, shape = y)) + 
+  geom_point(size = 2) +
+  scale_color_manual(values=c("#000000", "#FF0000")) +
+  theme(legend.position = "none")
+```
+
+Whether the data is separable or not, the svm() command syntax is the
+same. In the case of data that is not linearly separable, however, the
+cost = argument takes on real importance. This quantifies the penalty
+associated with having an observation on the wrong side of the
+classification boundary. We can plot the fit in the same way as the
+completely separable case. We first use e1071:
+
+```{r}
+# Fit Support Vector Machine model to data set
+svmfit <- svm(y~., data = dat, kernel = "linear", cost = 10)
+# Plot Results
+plot(svmfit, dat)
+```
+
+Now we use the kernlab package, but also change the cost from 10 to 100.
+
+```{r}
+# Fit Support Vector Machine model to data set
+kernfit <- ksvm(x,y, Class = "C-svc", kernel = 'vanilladot', C = 100)
+# Plot results
+plot(kernfit, data = x)
+```
+
+The higher the value of cost, the more the model tries to avoid a
+mis-clasification. But how can we decide what is the "best" cost for our
+data? Instead of specifying a cost up front, we can use the tune()
+function from e1071 to test various costs and identify which value
+produces the best fitting model:
+
+```{r}
+# find optimal cost of mis-classification
+tune.out <- tune(svm, y~., data = dat, kernel = "linear",
+                 ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5, 10, 100)))
+# extract the best model
+(bestmod <- tune.out$best.model)
+```
+
+With the optimal cost calculated, we can construct a table of predicted
+classes against true classes using the predict() command as follows:
+
+```{r}
+ypred <- predict(bestmod, dat)
+(misclass <- table(predict = ypred, truth = dat$y))
+```
+
+Using this support vector classifier did an ok job, but the data we
+generated was small.
 
 ## (finally) SVM
 
@@ -1013,3 +924,322 @@ course). Our results show that- in general- the higher the k is the less
 accurate the algorithm is. We tried using K=9 and without the
 "Kernel.Length" (or "Compactness") column, but that didn't help the
 accuracy at all.
+
+
+## Random forest
+
+We begin by loading the required libraries:
+
+```{r setup}
+library(tidymodels) # for the rsample package, along with the rest of tidymodels
+library(modeldata)  # for the cells data
+library(vip)        # for variable importance plots
+```
+
+We have data for 196 patients, with 63 features. The main outcome variable of interest for us here is called class, which is a factor.Each row is a patient, classified as "glaucoma"  or "normal" . If we can predict these labels accurately, the larger data set can be improved by filtering out the cells most likely to be poorly segmented.
+
+
+An important aspect when performing prediction is the class balance, lets take a look:
+
+```{r}
+glaucoma %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+```
+
+We have 50% 'glaucoma' patients and 50% 'normal' patients. We can make the splits with the same proportions as the original data (50/50).
+
+## Data Splitting
+
+To split data, we are using the strata argument, which conducts a stratified split. This ensures that, despite the imbalance we noticed in our class variable, our training and test data sets will keep roughly the same proportions of sick andnormal patients as in the original data.
+
+```{r}
+set.seed(123)
+patient_split <- initial_split(glaucoma, 
+                            strata = Class)
+
+glaucoma_train <- training(patient_split)
+glaucoma_test  <- testing(patient_split)
+
+nrow(glaucoma_train)
+nrow(glaucoma_train)/nrow(glaucoma)
+
+# training set proportions by class
+glaucoma_train %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+
+# test set proportions by class
+glaucoma_test %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+```
+
+## Random Forest Modeling
+
+The random Forest algorithm uses many decision trees. For classification, which is what
+we are focusing on, the final class result is based on the class that was picked from most trees. 
+
+First we define our model with the parsnip package. Random forests have very little mandatory parameters. 
+Here we only define the number of trees:
+
+```{r}
+# create random forest model
+rf_mod <- 
+  rand_forest(trees = 1000) %>% 
+  set_engine("ranger") %>%   # engine - method of estimation the model will use
+  set_mode("classification")
+```
+
+We want reproducible results, so we set.seed. Taking a look at the model:
+
+```{r}
+# train model
+library(ranger)
+set.seed(234)
+rf_fit <- 
+  rf_mod %>% 
+  fit(Class ~ ., data = glaucoma_train)
+rf_fit
+```
+
+We can see our model had 1000 trees like we specified, and several other metrics, such as the prediction error, 13% here.
+
+## Estimating performance
+
+Next we want to see if we can improve our model. We do this by changing some things about it. 
+The changes can either be random (guessing) or more precise, depending on performance metrics. In our example, we will use the area under the Receiver Operating Characteristic (ROC) curve (which demonstrates the trade-off between the sensitivity and and specificity), and overall classification accuracy.
+
+Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the glaucoma_train partition of our data:
+
+```{r}
+rf_training_pred <- 
+  predict(rf_fit, glaucoma_train) %>% 
+  bind_cols(predict(rf_fit, glaucoma_train, type = "prob")) %>% 
+  # Add the true outcome data back in
+  bind_cols(glaucoma_train %>% 
+              select(Class))
+
+# ROC calculation
+rf_training_pred %>%                # training set predictions
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation
+rf_training_pred %>%                # training set predictions
+  accuracy(truth = Class, .pred_class)
+
+
+```
+
+As we can see, these are very good results. Almost too good....Lets see how the model performs on the test data:
+
+```{r}
+rf_testing_pred <- 
+  predict(rf_fit, glaucoma_test) %>% 
+  bind_cols(predict(rf_fit, glaucoma_test, type = "prob")) %>% 
+  bind_cols(glaucoma_test %>% select(Class))
+
+# ROC calculation
+rf_testing_pred %>%                   # test set predictions
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation
+rf_testing_pred %>%                   # test set predictions
+  accuracy(truth = Class, .pred_class)
+```
+
+These validation results are lower than the ones we got on the training data.
+There are several reasons why training set statistics like the ones shown in this section can be unrealistically optimistic:
+
+- Overfitting - Models like random forests, neural networks, and other black-box methods can essentially memorize the training set. Re-predicting that same set should always result in nearly perfect results.
+
+- The training set does not have the capacity to be a good arbiter of performance. It is not an independent piece of information; predicting the training set can only reflect what the model already knows.
+
+## Resampling
+
+Resampling methods, such as cross-validation and the bootstrap, are empirical simulation systems. They create a series of data sets similar to the training/testing split discussed previously; a subset of the data is used for creating the model and a different subset is used to measure performance. Resampling is always used with the training set. 
+
+Here we'll use 10-fold cross-validation. This means that we'll create 10 "mini" datasets, or folds. We call the majority part of the folds (9 out of 10 in this case) the "analysis set" and the minority the "assessment set". We then train a model using the analysis set, and test it on the assessment set, effectively repeating the modeling process 10 times. This is how its done:
+
+```{r}
+# create the folds
+set.seed(345)
+folds <- vfold_cv(glaucoma_train, v = 10)
+folds
+
+# here we use a workflow, which bundles together the model specifications and actual modeling
+# set the random forest workflow 
+rf_wf <- 
+  workflow() %>%
+  add_model(rf_mod) %>%
+  add_formula(Class ~ .)
+
+# add folds to workflow and train model
+set.seed(456)
+rf_fit_rs <- 
+  rf_wf %>% 
+  fit_resamples(folds)
+
+rf_fit_rs
+
+collect_metrics(rf_fit_rs)
+```
+
+We see these results are lower and look more realistic.
+Now, looking at the test set for results, we expect and see much more similar results to the above ROC and accuracy:
+
+```{r}
+# ROC calculation on test predictions
+rf_testing_pred %>%             
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation on test predictions
+rf_testing_pred %>%           
+  accuracy(truth = Class, .pred_class)
+```
+
+
+## Tuning hyperparameters
+
+Another way to improve the performance of our models is by changing the parameters we provide them with. This is also called Tuning. Random Forests, as mentioned above, are not very sensitive to such parameters, but decision trees are. Lets see:
+
+```{r}
+# defining the parameters for the decision tree
+tune_spec <- 
+  decision_tree(
+    cost_complexity = tune(), # to control the size of the tree
+    tree_depth = tune()
+  ) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+
+tune_spec
+```
+
+Note that in the above code, tune() is still just a placeholder. 
+We will fill in values later on.
+
+Next, we will create several smaller datasets, to try different parameters. 
+The grid_regular command below will create 5 such datasets for each parameter combination, meaning 25 in total.
+
+```{r}
+# create 5 'datasets' with different combinations
+tree_grid <- grid_regular(cost_complexity(), 
+                          tree_depth(),
+                          levels = 5)
+
+tree_grid
+
+tree_grid %>% 
+  count(tree_depth)
+
+set.seed(234)
+glaucoma_folds <- vfold_cv(glaucoma_train) # create the actual cross-validation folds
+```
+## Model tuning with a grid
+
+```{r}
+set.seed(345)
+# define the workflow
+tree_wf <- workflow() %>%
+  add_model(tune_spec) %>%
+  add_formula(Class ~ .)
+
+# update and train workflow with grids
+tree_res <- 
+  tree_wf %>% 
+  tune_grid(
+    resamples = glaucoma_folds,
+    grid = tree_grid
+    )
+
+tree_res
+
+tree_res %>% 
+  collect_metrics()
+```
+Its easier to see how the models did with a graph:
+
+```{r}
+# plot preformance
+tree_res %>%
+  collect_metrics() %>%
+  mutate(tree_depth = factor(tree_depth)) %>%
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+We can see that our tree with a depth of 1, is the worst model according to both metrics and across all candidate values of cost_complexity. Our deepest tree, with a depth of 15, did better.  The show_best() function shows us the top 5 candidate models by default:
+
+```{r}
+# best tree
+tree_res %>%
+  show_best("roc_auc")
+```
+
+And finally, let's finalize the workflow with the best tree. 
+
+```{r}
+best_tree <- tree_res %>%
+  select_best("roc_auc") # Selecting the best tree
+
+best_tree
+
+# Finalize workflow
+final_wf <- 
+  tree_wf %>% 
+  finalize_workflow(best_tree)
+
+final_wf
+```
+## Exploring results
+
+So we have our best tree parameters. Lets take a better look:
+
+```{r}
+final_tree <- 
+  final_wf %>%
+  fit(data = glaucoma_train) 
+
+final_tree
+```
+
+Another way to look at how the model uses the different features is using the vip package:
+
+```{r}
+#final_tree %>% 
+ # pull_workflow_fit() %>% 
+  #vip()
+
+final_tree %>% 
+  extract_fit_parsnip() %>% 
+  vip()
+```
+
+## Finalizing the model
+
+Finally, let’s return to our test data and estimate the model performance we expect to see with new data. We can use the function last_fit() with our finalized model; this function fits the finalized model on the full training data set and evaluates the finalized model on the testing data.
+
+```{r}
+# Set workflow
+final_fit <- 
+  final_wf %>%
+  last_fit(patient_split) 
+
+# train
+final_fit %>%
+  collect_metrics()
+
+# collect metrics
+final_fit %>%
+  collect_predictions() %>% 
+  roc_curve(Class, .pred_glaucoma) %>% 
+  autoplot()
+
+args(decision_tree)
+```
+We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions.
