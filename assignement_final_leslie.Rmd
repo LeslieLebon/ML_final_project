@@ -63,11 +63,19 @@ glaucoma <- read.csv("GlaucomaM.csv")# read data
 
 ## look at the data and initial preproccessing
 We would like to have a look on our dataset.
+We want to classify our data according to the' 'Class' column We took a
+quick look at the data as a whole, and specifically the 'Class' column.
+In order to further understand the data and be able to work with it we
+also used the "table" function. this function builds a contingency table
+of the counts at each combination of factor levels- we used it for the
+'Class'.
+
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 head(glaucoma)
 str(glaucoma)
 colSums(glaucoma==0)
 glaucoma%>%select((everything()))%>%summarise_all(funs(sum(is.na(.)))) # check NA's
+print(summary(glaucoma$Class))
 ```
 
 We have 196 objects and 63 variables (columns). We looked at the data
@@ -82,7 +90,6 @@ of the counts at each combination of factor levels- we used it for the
 'Class'.
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
-
 print(summary(glaucoma$Class))
 table(glaucoma$Class) # quick look specifically at the 'Class' column
 glaucoma$Class<-as.factor(glaucoma$Class)
@@ -104,13 +111,12 @@ glaucoma <- glaucoma[sample(nrow(glaucoma)),]
 ```
 
 # EDA analysis
-##########I dont know what that???
+
 Results obtained with corrplot: Positive correlations are displayed in a
 blue scale while negative correlations are displayed in a red scale. we
 can observe 8 clusters of features that highly correlate. Results obtained with heatmap: we
 can observe one big cluster that could be divided in 2 and 2 others
 clusters of features.
-########################
 
 We would like to observe if we can  cluster patients healthy or with glaucoma with all the features.
 We performed first a PCA on all fetures and values.
@@ -137,13 +143,10 @@ gl_pca_plot
 ```
 
 In the PCA, we can observe 2 clusters of patients: glaucoma patients and normal
-patients. Unfortunatly, some of them are mixed (cloud of blue and red points) in a same area. These cases were not clustered correctly. This mixture could be, probably
-to the fact that many features correlate. Thereby,we will try to observe any correlation between features to determine which feature are correlated.
- 
+patients. Unfortunately, some of them were not clustered correctly (mixed clouds of blue and red points) in the same area. This mixture could be, probably to the fact that many features correlate, so our next course of action was to check for any correlation between features to determine which feature are correlated by using pearson correlation
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 #calculation of correlation, using pearson correlation
-
 gl.cor = cor(glaucoma[,c(1:62)], method = c("pearson"))
 
 corrplot(gl.cor)
