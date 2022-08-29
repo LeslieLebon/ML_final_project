@@ -32,6 +32,8 @@ classifying) in order to be able to look at a person's data and
 according to that predict with a certain probability whether or not he
 might get sick with glaucoma.
 
+First, we need to load libraries and our dataset.
+
 # preproccessing
 
 ## Upload data and libraries
@@ -57,29 +59,31 @@ library(RColorBrewer) # customized coloring of plot
 library(dplyr)
 
 glaucoma <- read.csv("GlaucomaM.csv")# read data
-set.seed(123)#to initialize a pseudo random number generator. 
 ```
 
 ## look at the data and initial preproccessing
+We would like to have a look on our dataset.
+```{r, message=FALSE, warning=FALSE, results='hide'}
+head(glaucoma)
+str(glaucoma)
+colSums(glaucoma==0)
+glaucoma%>%select((everything()))%>%summarise_all(funs(sum(is.na(.)))) # check NA's
+```
 
-We want to classify our data according to the' 'Class' column We took a
-quick look at the data as a whole, and specifically the 'Class' column.
+We have 196 objects and 63 variables (columns). We looked at the data
+and saw that there are no NA's we need to take care of, and all columns
+are numeric, so there is no need to work on that. We can also observe that we have few 0s (between 0 and 48(feature vast)). We decided to keep all features for the moment.
+
+We want to classify our data according to the' 'Class' column.Indeed, the class telling us if the patient is sick or healthy.
+To this end, we took a quick look specifically the 'Class' column.
 In order to further understand the data and be able to work with it we
 also used the "table" function. this function builds a contingency table
 of the counts at each combination of factor levels- we used it for the
 'Class'.
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
-head(glaucoma)
-glaucoma%>%select((everything()))%>%summarise_all(funs(sum(is.na(.)))) # check NA's
+
 print(summary(glaucoma$Class))
-```
-
-We have 196 objects and 63 variables (columns). We looked at the data
-and saw that there are no NA's we need to take care of, and all columns
-are numeric, so there is no need to work on that.
-
-```{r, message=FALSE, warning=FALSE}
 table(glaucoma$Class) # quick look specifically at the 'Class' column
 glaucoma$Class<-as.factor(glaucoma$Class)
 ```
@@ -94,21 +98,22 @@ Since the whole table is already shuffled according to the 'Class'
 column, we don't need to shuffle the whole table again
 
 ```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+set.seed(123)#to initialize a pseudo random number generator. 
+
 glaucoma <- glaucoma[sample(nrow(glaucoma)),]
 ```
 
 # EDA analysis
-
+##########I dont know what that???
 Results obtained with corrplot: Positive correlations are displayed in a
 blue scale while negative correlations are displayed in a red scale. we
-can observe 8 clusters of features. Results obtained with heatmap: we
+can observe 8 clusters of features that highly correlate. Results obtained with heatmap: we
 can observe one big cluster that could be divided in 2 and 2 others
 clusters of features.
+########################
 
-> > > > > > > > > > > > > > > > > > > > It means that ??? we should
-> > > > > > > > > > > > > > > > > > > > delete features that are
-> > > > > > > > > > > > > > > > > > > > correlated?????? what do you
-> > > > > > > > > > > > > > > > > > > > think Lilach?
+We would like to observe if we can  cluster patients healthy or with glaucoma with all the features.
+We performed first a PCA on all fetures and values.
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 
@@ -131,20 +136,14 @@ gl_pca_plot <- autoplot(gl.pca,
 gl_pca_plot
 ```
 
-In the PCA, we can observe that most of glaucoma patients and normal
-patients are clustered in 2 groups, but some of them are mixed, probably
-to the fact that many features correlate.
-
-Let's try to observe the different pvalues of correlation, to determine
-which feature are correlated.
-
-We will try to see if we can observe any correlation between features.
+In the PCA, we can observe 2 clusters of patients: glaucoma patients and normal
+patients. Unfortunatly, some of them are mixed (cloud of blue and red points) in a same area. These cases were not clustered correctly. This mixture could be, probably
+to the fact that many features correlate. Thereby,we will try to observe any correlation between features to determine which feature are correlated.
+ 
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 #calculation of correlation, using pearson correlation
-summary(glaucoma)
-```
-```{r, message=FALSE, warning=FALSE}
+
 gl.cor = cor(glaucoma[,c(1:62)], method = c("pearson"))
 
 corrplot(gl.cor)
