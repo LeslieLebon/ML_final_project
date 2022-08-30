@@ -57,14 +57,13 @@ library(e1071)        # SVM methodology
 library(ISLR)         # contains example data set "Khan"
 library(RColorBrewer) # customized coloring of plot
 library(dplyr)
+library("Hmisc")
 
 glaucoma <- read.csv("GlaucomaM.csv")# read data
 ```
 
 ## look at the data and initial preproccessing
-We would like to have a look on our dataset.
-We want to classify our data according to the' 'Class' column We took a
-quick look at the data as a whole, and specifically the 'Class' column.
+We took a quick look at the data as a whole, and specifically the 'Class' column.
 In order to further understand the data and be able to work with it we
 also used the "table" function. this function builds a contingency table
 of the counts at each combination of factor levels- we used it for the
@@ -78,11 +77,11 @@ glaucoma%>%select((everything()))%>%summarise_all(funs(sum(is.na(.)))) # check N
 print(summary(glaucoma$Class))
 ```
 
-We have 196 objects and 63 variables (columns). We looked at the data
+We have 196 patients (rows) and 63 features (columns). We looked at the data
 and saw that there are no NA's we need to take care of, and all columns
 are numeric, so there is no need to work on that. We can also observe that we have few 0s (between 0 and 48(feature vast)). We decided to keep all features for the moment.
 
-We want to classify our data according to the' 'Class' column.Indeed, the class telling us if the patient is sick or healthy.
+We will classify our data according to the' 'Class' column.Indeed, the class telling us if the data from the corresponding row, is associated to a sick or healthy patient.
 To this end, we took a quick look specifically the 'Class' column.
 In order to further understand the data and be able to work with it we
 also used the "table" function. this function builds a contingency table
@@ -95,8 +94,8 @@ table(glaucoma$Class) # quick look specifically at the 'Class' column
 glaucoma$Class<-as.factor(glaucoma$Class)
 ```
 
-The column we want to classify is 'Class', and it is divided 2 ' normal'
-and ' glaucoma' (so we have two classes to classify to), divided neatly
+There are two classes to classify: ' normal'
+and ' glaucoma' , divided neatly
 in half. Before starting on teaching the algorithm, we converted the
 'Class' column to a factor, as that is what is required by the C50
 package.
@@ -112,14 +111,8 @@ glaucoma <- glaucoma[sample(nrow(glaucoma)),]
 
 # EDA analysis
 
-Results obtained with corrplot: Positive correlations are displayed in a
-blue scale while negative correlations are displayed in a red scale. we
-can observe 8 clusters of features that highly correlate. Results obtained with heatmap: we
-can observe one big cluster that could be divided in 2 and 2 others
-clusters of features.
-
-We would like to observe if we can  cluster patients healthy or with glaucoma with all the features.
-We performed first a PCA on all fetures and values.
+We will do an EDA analysis to select the correct features which will help us to classify patients.
+For that, we performed and plotted a PCA with all features without any filter to observe if we need to delete some features.
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 
@@ -143,7 +136,7 @@ gl_pca_plot
 ```
 
 In the PCA, we can observe 2 clusters of patients: glaucoma patients and normal
-patients. Unfortunately, some of them were not clustered correctly (mixed clouds of blue and red points) in the same area. This mixture could be, probably to the fact that many features correlate, so our next course of action was to check for any correlation between features to determine which feature are correlated by using pearson correlation
+patients. Unfortunately, some of them were not clustered correctly (mixed clouds of blue and red points) in the same area. This mixture could be, probably to the fact that many features correlate, so our next course of action was to check for any correlation between features to determine which feature are correlated by using pearson correlation.
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 #calculation of correlation, using pearson correlation
@@ -155,9 +148,13 @@ palette = colorRampPalette(c("green", "white", "red")) (20)
 heatmap(x = gl.cor, col = palette, symm = TRUE)
 
 ```
-
+In the first correlation heatmap (Results obtained with corrplot) positive correlations are displayed in a
+blue scale while negative correlations are displayed in a red scale. we
+can observe 8 clusters of features that highly correlate. In the second correlation heatmap (Pearson correlation and hierarchical clustering): we
+can observe one big cluster of features that have a high correlation. This cluster could be divided in 2 and 2 others
+clusters of features.
+We will try to remove features which have a high correlation score and plot a PCA to observe if these deletion could improve the patient class clustering.
 ```{r, message=FALSE, warning=FALSE, results='hide'}
-library("Hmisc")
 #This generates one table of correlation coefficients (the correlation matrix) and another table of the p-values. By default, the correlations and p-values #are stored in an object of class type rcorr. To extract the values from this object into a useable data structure, you can use the following syntax:
 gl.rcorr = rcorr(as.matrix(glaucoma[,c(1:62)]))
 gl.rcorr
@@ -183,6 +180,7 @@ colSums(glaucoma[,c(1:62)] != 0)
 
 
 ```
+As we can observe in the different heatmap, with the filter applied, there is less features which correlate highly.
 
 ```{r, message=FALSE, warning=FALSE}
 
@@ -212,9 +210,9 @@ gl_pca_plot2
 gl_pca_plot
 
 ```
+Unfortunately, we cannot observe a high improvement in the patient class clustering. Indeed, in the new PCA we observe again this mixed cluster of blue and red points.
+Taking all together, we decided to keep all the features from the dataset.
 
-> > > should we delete some features with a high correlation?PCA is not
-> > > enough to classify patients.
 
 Before starting on teaching the algorithm, we converted the 'Class'
 column to a factor, as that is what is required by the C50 package.
@@ -253,6 +251,9 @@ train_set_labels <-train_set["Class"] #save true "Classes" of the training set
 test_set_labels <-test_set["Class"] #save true "Classes" of the test set
 prop.table(table(train_set$Class))
 ```
+
+We decided to use SVM, random forest, KNN and ??? algorithms to classify our data.
+
 
 # SVM
 
@@ -383,8 +384,7 @@ constraints parameter C could be varied to modify the width of the
 decision boundary.
 
 Note that even at this point, we are not really sure how SVM classifies
-the characters (unlike a decision tree lets say), but does it really
-matter? SVM is good for cases when it does not.
+the characters (unlike a decision tree lets say), but it seems to be negligible, indeed, SVM is good for cases when it does not.
 
 ```{r message=FALSE, warning=FALSE}
 # compare performance
@@ -458,6 +458,7 @@ y <- c(rep(-1,10), rep(1,10))
 x[y==1,] <- x[y==1,] + 3/2
 dat <- data.frame(x=x, y=as.factor(y))
 
+####Lilach, in glaucoma data frame, there is no x.2 and x.1 column...
 # Plot data
 ggplot(data = glaucoma, aes(x = x.2, y = x.1, color = y, shape = y)) + 
   geom_point(size = 2) +
@@ -526,7 +527,11 @@ Now we use the kernlab package, but also change the cost from 10 to 100.
 # Fit Support Vector Machine model to data set
 kernfit <- ksvm(x,y, Class = "C-svc", kernel = 'vanilladot', C = 100)
 # Plot results
+
 plot(kernfit, data = x)
+#I got an error:
+#Error in .local(x, ...) : 
+#Only plots of classification ksvm objects supported
 ```
 
 The higher the value of cost, the more the model tries to avoid a
@@ -606,6 +611,9 @@ before, 1.
 kernfit <- ksvm(x[train,],y[train], Class = "C-svc", kernel = 'rbfdot', C = 1, scaled = c())
 # Plot training data
 plot(kernfit, data = x[train,])
+# i got an error again:
+#Error in .local(x, ...) : 
+#Only plots of classification ksvm objects supported
 ```
 
 Again, using tune to find the best cost for our data:
@@ -707,6 +715,10 @@ change of a tie vote.
 
 ```{r, message=FALSE, warning=FALSE,results='hide'}
 pred_knn <- knn.cv(train = train_set, cl = train_set_labels, k=21)
+# I got an error:
+#Error in knn.cv(train = train_set, cl = train_set_labels, k = 21) : 
+#'train' and 'class' have different lengths
+#'
 knn_table<-CrossTable(x = test_set_labels, y = pred_knn, prop.chisq=FALSE)
 acc_knn21 <- sum(diag(knn_table[["t"]])) / sum(knn_table[["t"]])
 df<-data.frame(predictions=c(as.numeric(pred_knn)),labels = c(test_set_labels))
@@ -755,6 +767,10 @@ accuracy
 
 ```{r, message=FALSE, warning=FALSE,results='hide'}
 pred_knn_norm <- knn(train = train_set_norm, test = test_set_norm, cl = train_set_labels, k=3)
+#i got an error:
+#Error in knn(train = train_set_norm, test = test_set_norm, cl = train_set_labels,  : 
+#  'train' and 'class' have different lengths
+
 knn_norm_table<-CrossTable(x = test_set_labels, y = pred_knn_norm, prop.chisq=FALSE)
 acc_knn3_norm <- sum(diag(knn_norm_table[["t"]])) / sum(knn_norm_table[["t"]])
 df_norm<-data.frame(predictions=c(as.numeric(pred_knn_norm)),labels = c(test_set_labels))
@@ -786,6 +802,10 @@ tried z-score standardization instead of normalization:
 train_set_z <- as.data.frame(scale(train_set[1:7]))
 test_set_z <- as.data.frame(scale(test_set[1:7]))
 pred_z <- knn(train = train_set_z, test = test_set_z, cl = train_set_labels, k=3)
+#i got an error:
+#Error in knn(train = train_set_z, test = test_set_z, cl = train_set_labels,  : 
+ # 'train' and 'class' have different lengths
+
 knn_z_table<-CrossTable(x = test_set_labels, y = pred_z, prop.chisq=FALSE)
 acc_knn3_z <- sum(diag(knn_z_table[["t"]])) / sum(knn_z_table[["t"]])
 df_z<-data.frame(predictions=c(as.numeric(pred_z)),labels = c(test_set_labels))
@@ -818,6 +838,10 @@ We tried with different K's (3, 9 and 15)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 pred_k9 <- knn(train = train_set, test = test_set, cl = train_set_labels, k=9)
+#i got same rror again
+#Error in knn(train = train_set, test = test_set, cl = train_set_labels,  : 
+ # 'train' and 'class' have different lengths
+
 knn9_table<-CrossTable(x = test_set_labels, y = pred_k9, prop.chisq=FALSE)
 acc_knn9 <- sum(diag(knn9_table[["t"]])) / sum(knn9_table[["t"]])
 df_knn9<-data.frame(predictions=c(as.numeric(pred_k9)),labels = c(test_set_labels))
@@ -1033,7 +1057,7 @@ rf_training_pred %>%                # training set predictions
 
 ```
 
-As we can see, these are very good results. Almost too good....Lets see how the model performs on the test data:
+As we can see, these are very good results. Almost too good, so we would like to see how the model performs on the test data:
 
 ```{r}
 rf_testing_pred <- 
@@ -1245,3 +1269,12 @@ final_fit %>%
 args(decision_tree)
 ```
 We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions.
+
+# We need another algorithm
+# Comparison between the 3/4 algorithm
+
+>>> Lilach, i cannot compare between the different algo because KNN doesnt work
+>>> could you please correct the error of test and train set please
+>>> could you please correct the error in the SVM about kernfit ?
+>>>>>>>>>>>>>>>>>Thanks
+
