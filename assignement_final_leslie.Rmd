@@ -219,6 +219,7 @@ column to a factor, as that is what is required by the C50 package.
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 glaucoma$Class<-as.factor(glaucoma$Class)
+glaucoma$Class <- factor(glaucoma$Class, levels = c("glaucoma", "normal"), labels = c("g", "n"))
 ```
 
 Since the whole table is sorted according to the 'Class' column, and we
@@ -714,7 +715,11 @@ the the number of Classes we have and also an odd number, reducing the
 change of a tie vote.
 
 ```{r, message=FALSE, warning=FALSE,results='hide'}
-pred_knn <- knn.cv(train = train_set, cl = train_set_labels, k=21)
+#replace glaucoma class by 1 and normal class by 0
+
+test_set_labels<-train_set$Class
+train_set2<-train_set[,-63]
+pred_knn <- knn.cv(train = train_set2, cl =test_set_labels , k=21)
 # I got an error:
 #Error in knn.cv(train = train_set, cl = train_set_labels, k = 21) : 
 #'train' and 'class' have different lengths
@@ -757,8 +762,8 @@ features with different scales.
 normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
 normalize(c(1, 2, 3, 4, 5)) # test our function 1
 normalize(c(10, 20, 30, 40, 50)) # test our function 2
-train_set_norm <- as.data.frame(lapply(train_set[1:7], normalize))
-test_set_norm <- as.data.frame(lapply(test_set[1:7], normalize))
+train_set_norm <- as.data.frame(lapply(train_set[,-63], normalize))
+test_set_norm <- as.data.frame(lapply(test_set[,-63], normalize))
 summary(train_set_norm$Area) # test our dataset
 ```
 
@@ -766,7 +771,10 @@ Everything looked ok so we went on the the prediction and evaluation of
 accuracy
 
 ```{r, message=FALSE, warning=FALSE,results='hide'}
-pred_knn_norm <- knn(train = train_set_norm, test = test_set_norm, cl = train_set_labels, k=3)
+
+test_set_labels<-train_set_norm$Class
+train_set_norm2<-train_set_norm[,-63]
+pred_knn_norm <- knn(train = train_set_norm2, test = test_set_norm, cl = train_set_labels, k=3)
 #i got an error:
 #Error in knn(train = train_set_norm, test = test_set_norm, cl = train_set_labels,  : 
 #  'train' and 'class' have different lengths
