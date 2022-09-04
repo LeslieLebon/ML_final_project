@@ -1,0 +1,985 @@
+---
+editor_options:
+  markdown:
+    wrap: 72
+  chunk_output_type: inline
+output:
+  word_document: 
+    fig_width: 10
+  html_document:
+    self_contained: no
+    keep_md: yes
+  pdf_document: default
+---
+
+------------------------------------------------------------------------
+
+title: "Final Project"
+
+author: "Lilach Herzog & Leslie Cohen" date: "13 5 2022" output:
+word_document: toc: yes toc_depth: 4 pdf_document: toc_depth: 1
+fig_caption: yes number_sections: yes fig_height: 3 editor_options:
+chunk_output_Class: inline ---
+
+Our whole project and code can be found on github at
+<https://github.com/LeslieLebon/assignment-2.git>
+
+Our objective in this project was to analyze the "GlaucomaM" dataset
+(where the 'Class' of the seed is the column used for labeling and
+classifying) in order to be able to look at a person's data and
+according to that predict with a certain probability whether or not he
+might get sick with glaucoma.
+
+First, we need to load libraries and our dataset.
+
+# preproccessing
+
+## Upload data and libraries
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+library(gmodels)
+library(C50)
+library(class) 
+library(tidymodels) # for the rsample package, along with the rest of tidymodels
+library(ROCR)
+library(reshape2)
+#library(ggpmisc)
+library(ggplot2)
+library(gridExtra)
+library(pROC)
+library(ggfortify)
+library(corrplot)
+library(tidyverse)    # data manipulation and visualization
+library(kernlab)      # SVM methodology
+library(e1071)        # SVM methodology
+library(ISLR)         # contains example data set "Khan"
+library(RColorBrewer) # customized coloring of plot
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(caret)
+
+glaucoma <- read.csv("GlaucomaM.csv")# read data
+```
+
+## look at the data and initial preproccessing
+We would like to have a look on our dataset.
+We want to classify our data according to the' 'Class' column We took a
+quick look at the data as a whole, and specifically the 'Class' column.
+In order to further understand the data and be able to work with it we
+also used the "table" function. this function builds a contingency table
+of the counts at each combination of factor levels- we used it for the
+'Class'.
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+head(glaucoma)
+str(glaucoma)
+colSums(glaucoma==0)
+glaucoma%>%select((everything()))%>%summarise_all(funs(sum(is.na(.)))) # check NA's
+print(summary(glaucoma$Class))
+```
+
+We have 196 objects and 63 variables (columns). We looked at the data
+and saw that there are no NA's we need to take care of, and all columns
+are numeric, so there is no need to work on that. We can also observe that we have few 0s (between 0 and 48(feature vast)). We decided to keep all features for the moment.
+
+We want to classify our data according to the' 'Class' column.Indeed, the class telling us if the patient is sick or healthy.
+To this end, we took a quick look specifically the 'Class' column.
+In order to further understand the data and be able to work with it we
+also used the "table" function. this function builds a contingency table
+of the counts at each combination of factor levels- we used it for the
+'Class'.
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+print(summary(glaucoma$Class))
+table(glaucoma$Class) # quick look specifically at the 'Class' column
+glaucoma$Class<-as.factor(glaucoma$Class)
+```
+
+The column we want to classify is 'Class', and it is divided 2 ' normal'
+and ' glaucoma' (so we have two classes to classify to), divided neatly
+in half. Before starting on teaching the algorithm, we converted the
+'Class' column to a factor, as that is what is required by the C50
+package.
+
+Since the whole table is already shuffled according to the 'Class'
+column, we don't need to shuffle the whole table again
+
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+set.seed(123)#to initialize a pseudo random number generator. 
+
+glaucoma <- glaucoma[sample(nrow(glaucoma)),]
+```
+
+# EDA analysis
+
+Results obtained with corrplot: Positive correlations are displayed in a
+blue scale while negative correlations are displayed in a red scale. we
+can observe 8 clusters of features that highly correlate. Results obtained with heatmap: we
+can observe one big cluster that could be divided in 2 and 2 others
+clusters of features.
+
+We would like to observe if we can  cluster patients healthy or with glaucoma with all the features.
+We performed first a PCA on all fetures and values.
+
+```{r, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+
+# Preform PCA on our data
+
+gl.pca <- prcomp(glaucoma[,1:62],
+                   center = TRUE,
+                   scale. = TRUE)
+  
+# summary of the 
+# prcomp object
+summary(gl.pca)
+gl_pca_plot <- autoplot(gl.pca,
+                          data = glaucoma,
+                          colour = 'Class')
+  
+
+```
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+gl_pca_plot
+```
+
+In the PCA, we can observe 2 clusters of patients: glaucoma patients and normal
+patients. Unfortunately, some of them were not clustered correctly (mixed clouds of blue and red points) in the same area. This mixture could be, probably to the fact that many features correlate, so our next course of action was to check for any correlation between features to determine which feature are correlated by using pearson correlation
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+#calculation of correlation, using pearson correlation
+gl.cor = cor(glaucoma[,c(1:62)], method = c("pearson"))
+
+corrplot(gl.cor)
+
+palette = colorRampPalette(c("green", "white", "red")) (20)
+heatmap(x = gl.cor, col = palette, symm = TRUE)
+
+```
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+library("Hmisc")
+#This generates one table of correlation coefficients (the correlation matrix) and another table of the p-values. By default, the correlations and p-values #are stored in an object of class type rcorr. To extract the values from this object into a useable data structure, you can use the following syntax:
+gl.rcorr = rcorr(as.matrix(glaucoma[,c(1:62)]))
+gl.rcorr
+gl.coeff = gl.rcorr$r
+
+cor_matrix_rm <- gl.cor                  # Modify correlation matrix
+cor_matrix_rm[upper.tri(cor_matrix_rm)] <- 0
+diag(cor_matrix_rm) <- 0
+cor_matrix_rm
+
+data<-glaucoma[,c(1:62)]
+data_new <- data[ , !apply(cor_matrix_rm,    # Remove highly correlated variables
+                           2,
+                           function(x) any(x > 0.8))]
+head(data_new)
+
+colSums(glaucoma[,c(1:62)] != 0)
+
+```
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+gl.cor2 = cor(data_new, method = c("pearson"))
+corrplot(gl.cor2)
+heatmap(x = gl.cor2, col = palette, symm = TRUE)
+
+
+```
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+
+########
+# Preform PCA on our new data
+
+gl.pca2 <- prcomp(data_new,
+                   center = TRUE,
+                   scale. = TRUE)#play with options
+  
+```
+```{r, message=FALSE, warning=FALSE, results='hide'}
+# summary of the 
+# prcomp object
+summary(gl.pca2)
+```
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+gl_pca_plot2 <- autoplot(gl.pca2,
+                          data = glaucoma,
+                          colour = 'Class')
+gl_pca_plot2
+gl_pca_plot
+```
+
+> > > should we delete some features with a high correlation?PCA is not
+> > > enough to classify patients.
+
+Before starting on teaching the algorithm, we converted the 'Class'
+column to a factor, as that is what is required by the C50 package.
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+glaucoma$Class<-as.factor(glaucoma$Class)
+```
+
+Since the whole table is sorted according to the 'Class' column, and we
+want to work randomly, we will shuffle the whole table
+
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+glaucoma <- glaucoma[sample(nrow(glaucoma)),]
+str(glaucoma) #look at the data again to make sure it's shuffled
+```
+
+## split into training and test sets
+
+### Splitting
+
+We split the whole data set into 80% training set and 20% test set.
+Since we know that there are about a half of each Class in the data set,
+we wanted to be sure that the distribution is as we defined (about 1/2
+of each Class in of both training and test sets) The training set is
+what we will use to train the algorithm, to help it learn our data, and
+then we will run the algorithm on 20% of the data (test set), and
+predict according to what it learned in the training set, and since it
+is still our data we have the true class each individual belongs to, so
+we can evaluate how well the algorithm succeeded in predicting.
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+index <- sample(nrow(glaucoma),round(nrow(glaucoma)*.8),replace = FALSE) #80% of dataset for training
+
+train_set <- glaucoma[index,]
+test_set<- glaucoma[-index,]
+train_set_labels <-train_set["Class"] #save true "Classes" of the training set
+test_set_labels <-test_set["Class"] #save true "Classes" of the test set
+prop.table(table(train_set$Class))
+prop.table(table(test_set$Class))
+```
+## much better splitting!!
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+data <- initial_split(glaucoma, strata = Class )
+data_train <- training(data) #we used the default parameters of splitting size
+data_test <- testing(data)
+
+prop.table(table(data_train$Class))
+prop.table(table(data_test$Class))
+```
+# SVM
+
+Here we'll use SVM to develop a model similar to those used at the core
+of the Optical Character Recognition (OCR) software often bundled with
+desktop document scanners. The purpose of such software is to process
+paper-based documents by converting printed or handwritten text into an
+electronic form to be saved in a database. Of course, this is a
+difficult problem due to the many variants in handwritten style and
+printed fonts. Even so, software users expect perfection, as errors or
+typos can result in embarrassing or costly mistakes in a business
+environment.
+
+According to the documentation provided by Frey and Slate, when the
+glyphs are scanned into the computer, they are converted into pixels and
+16 statistical attributes are recorded.
+
+The attributes measure such characteristics as the horizontal and
+vertical dimensions of the glyph, the proportion of black (versus white)
+pixels, and the average horizontal and vertical position of the pixels.
+Presumably, differences in the concentration of black pixels across
+various areas of the box should provide a way to differentiate among the
+26 Classs of the alphabet.
+
+As always, we start by reading and looking at the data.
+
+One important thing to note when using SVM is that it only works on
+numeric data, and that each feature must be scaled. The data here is
+already numeric, and the package we use will let us scale the data when
+running the algorithm itself. So we are good to go!
+
+The data is already randomized, so we can easily create our training and
+test sets:
+
+And to building the actual model:
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# create and train model
+Class_classifier_linear <-  ksvm(x=Class~., data=train_set,kernel = "vanilladot")
+Class_classifier_linear
+```
+
+As we mentioned, SVM can be a bit of a black box. We know the model uses
+61 support vectors, and that the training error is 0.076433 but we don't
+know anything else.
+
+Lets run the model on the test set, and see how well our model does.
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+# apply model on test set
+Class_predictions_linear <- predict(Class_classifier_linear, test_set)
+table(Class_predictions_linear, test_set$Class)
+svm_table_linear<-CrossTable(test_set$Class, Class_predictions_linear,
+prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+dnn = c('actual Type', 'predicted Type'))
+```
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+svm_linear_tbl<-svm_table_linear[["t"]]
+grid.arrange(tableGrob(svm_linear_tbl),ncol=1,nrow=1)
+```
+
+To examine how well our classifier performed, we need to compare the
+predicted Class to the true Class in the testing dataset, so we used the
+table() function.
+
+
+To avoid having to calculate an accuracy score from this large confusion
+matrix, we will use the following command, which returns a vector of
+TRUE or FALSE values, indicating whether the model's predicted Class
+agrees with (that is, matches) the actual Class in the test dataset. We
+will then use it to calculate the percentages.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+
+df_linear<-data.frame(predictions=c(as.numeric(Class_predictions_linear)),labels = c(test_set$Class))
+pROC_svm_linear <- roc(df_linear$labels,df_linear$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_svm_linear)
+plot(sens.ci, Class="shape", col="lightblue", title("linear kernel"))
+plot(sens.ci, Class="bars")
+svm_linear_stats <- data.frame(kernel="linear",precision=precision(svm_linear_tbl)$.estimate, recall= recall(svm_linear_tbl)$.estimate, accuracy=accuracy(svm_linear_tbl)$.estimate, AUC=pROC_svm_linear$au)
+grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
+agreement_linear <- Class_predictions_linear == test_set$Class # calculate true/false values
+prop.table(table(agreement_linear)) # true/false preformance percentage
+```
+
+The accuracy is  0.846 and the AUC is 0.857. These are pretty good results. We want to make them even better, but what's really important for us is to minimize the false negatives- type II error- since we are working with information about patients, a result telling a person that might be sick that he is healthy can be much more problematic than a result telling a healthy person that he might be sick, and our recall is 0.944.
+We still want to see, maybe a different kernel will do a better job?
+
+### Improving SVM Model
+
+There are many kernel functions for SVM, but a standard Gaussian Radial
+basis function (RBF) kernel is a good place to start. We'll use the
+ksvm() function here. Note that since this is a large dataset, running
+times can start to add up:
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# train svm model with RBF kernel function
+Class_classifier_rbf <- ksvm(Class ~ ., data = train_set, kernel = "rbfdot")
+Class_predictions_rbf <- predict(Class_classifier_rbf, test_set) # predict on test set
+svm_table_rbf<-CrossTable(test_set$Class, Class_predictions_rbf,
+prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+dnn = c('actual Type', 'predicted Type'))
+svm_rbf_tbl<-svm_table_rbf[["t"]]
+```
+
+And compare it to the previous model:
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# calculate performance
+
+df_rbf<-data.frame(predictions=c(as.numeric(Class_predictions_rbf)),labels = c(test_set$Class))
+pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_svm_rbf)
+plot(sens.ci, Class="shape", col="lightblue", title("RBF"))
+plot(sens.ci, Class="bars")
+svm_rbf_stats <- data.frame(kernel="rbf",precision=precision(svm_rbf_tbl)$.estimate, recall= recall(svm_rbf_tbl)$.estimate, accuracy=accuracy(svm_rbf_tbl)$.estimate, AUC=pROC_svm_rbf$auc)
+```
+
+We can see a substantial increase in accuracy, from 84.6% to 92.3% and
+AUC of 93.2%. Other kernels might prove even better, or the cost of
+constraints parameter C could be varied to modify the width of the
+decision boundary.
+
+Note that even at this point, we are not really sure how SVM classifies
+the characters (unlike a decision tree lets say), but does it really
+matter? SVM is good for cases when it does not.
+
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# compare performance
+roc_test<-roc.test(pROC_svm_linear,pROC_svm_rbf)
+roc_test$estimate
+
+svm_linear_stats[nrow(svm_linear_stats)+1,]=svm_rbf_stats
+grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
+
+g2 <- ggroc(list(vanilladot=pROC_svm_linear, rbf=pROC_svm_rbf))+labs(title = "linear Vs. RBF")
+
+
+# And change axis labels to FPR/FPR
+linear_roc <- ggroc(pROC_svm_linear, legacy.axes = TRUE)+ ggtitle("linear ROC curve") +geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
+rbf_roc <- ggroc(pROC_svm_rbf, legacy.axes = TRUE)+ ggtitle("rbf ROC curve") +geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
+grid.arrange(linear_roc + xlab("FPR") + ylab("TPR"),g2+theme(legend.position = "top")+ labs(color="kernel:"),rbf_roc + xlab("FPR") + ylab("TPR"), ncol=3) 
+
+#for future work
+roc.list <- roc(Class~., data=glaucoma)
+per_feature <- ggroc(roc.list, linetype=2)
+per_feature+ ggtitle("per feature")
+
+
+roc.list <- roc(Class~., data=glaucoma)
+g.list <- ggroc(roc.list)
+g.list + scale_colour_brewer(palette="RdGy")+ ggtitle("title")
+```
+
+# KNN algorithm
+
+In the KNN Algorithm, k is a user-defined constant, and an unlabeled
+vector (a query or test point) is classified by assigning the label
+which is most frequent among the k training samples nearest to that
+query point.
+
+## run the KNN algorithm
+
+And finally, we are ready to run our algorithm. We'll start with K of 3,
+the the number of Classes we have and also an odd number, reducing the
+change of a tie vote.
+
+### normalization
+
+We tried normalization, thinking that the range of values of each
+parameter is similar in order to compare the distances of different
+features with different scales.
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
+normalize(c(1, 2, 3, 4, 5)) # test our function 1
+normalize(c(10, 20, 30, 40, 50)) # test our function 2
+train_set_norm <- as.data.frame(lapply(data_train[,-63], normalize))
+test_set_norm <- as.data.frame(lapply(data_test[,-63], normalize))
+summary(train_set_norm$ag) # test our dataset
+```
+#### cross validation
+
+```{r message=FALSE, warning=FALSE, paged.print=TRUE}
+
+train_with_knn_cv<-train(train_set_norm,data_train[,63],
+                       method = "knn",
+                       tuneGrid = data.frame(k=seq(1,30,2)),
+                       trControl = trainControl(method = "cv", number = 10),
+                       metric = "Kappa")
+print(paste0("the best k for cv is: ",train_with_knn_cv[["bestTune"]][["k"]])) # to know which k gave the best result
+
+# use confusionMatrix to check how well we did (check on both the train and the test sets)
+train_confMat_cv <- confusionMatrix(predict(train_with_knn_cv, train_set_norm, type = "raw"),data_train[,63])
+knn_predictions_cv<-predict(train_with_knn_cv, test_set_norm, type = "raw")
+test_confMat_cv <- confusionMatrix(knn_predictions_cv,data_test[,63])
+
+
+# check how accurately we did
+kables(list(
+  train_confMat_cv[["table"]]%>% 
+    kable(caption = paste0("train set, accuracy = ",
+                           round(train_confMat_cv[["overall"]][["Accuracy"]],3))) %>%
+    kable_styling(full_width = F, position = "float_left"),
+  test_confMat_cv[["table"]]%>%
+    kable(caption = paste0("test set, accuracy = ",
+                           round(test_confMat_cv[["overall"]][["Accuracy"]],3))) %>%
+    kable_styling(full_width = F, position = "float_right")),
+  caption="cross validation")
+
+knn_df_norm_cv<-data.frame(predictions=c(as.numeric(knn_predictions_cv)),labels = c(data_test[,63]))
+pROC_norm_knn_cv <- roc(knn_df_norm_cv$labels,knn_df_norm_cv$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_norm_knn_cv)
+
+#calculate statistics
+knn_cv_stats <- data.frame(method="cross validation", 
+                           Accuracy=test_confMat_cv[["overall"]][["Accuracy"]],
+                           AUC=pROC_norm_knn_cv$auc,
+                           Sensitivity=test_confMat_cv[["byClass"]] [["Sensitivity"]], 
+                           Precision=test_confMat_cv[["byClass"]] [["Precision"]], 
+                           Recall=test_confMat_cv[["byClass"]] [["Recall"]])
+
+```
+#### repeated cross validation
+
+```{r, message=FALSE, warning=FALSE}
+#| layout-ncol: 2
+#| layout-nrow: 2
+#| tbl-cap: "knn repeated cross validation"
+#| tbl-subcap: ["train set confusion matrix", "test set confusion matrix", "compared accuracies"]
+
+train_with_knn_repeatedcv<-train(train_set_norm,data_train[,63],
+                       method = "knn",
+                       tuneGrid = data.frame(k=seq(1,30,2)),
+                       trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
+                       metric = "Kappa")
+print(paste0("the best k for repeatedcv is: ",train_with_knn_repeatedcv[["bestTune"]][["k"]])) # to know which k gave the best result
+
+# use confusionMatrix to check how well we did (check on both the train and the test sets)
+train_confMat_rep_cv <- confusionMatrix(predict(train_with_knn_repeatedcv, train_set_norm, type = "raw"),data_train[,63])
+knn_predictions_rep_cv<-predict(train_with_knn_repeatedcv, test_set_norm, type = "raw")
+test_confMat_rep_cv <- confusionMatrix(knn_predictions_rep_cv,data_test[,63])
+
+kables(list(
+  train_confMat_rep_cv[["table"]]%>% 
+    kable(caption = paste0("train set, accuracy = ",
+                           round(train_confMat_rep_cv[["overall"]][["Accuracy"]],3))) %>%
+    kable_styling(full_width = F, position = "float_left"),
+  test_confMat_rep_cv[["table"]]%>%
+    kable(caption = paste0("test set, accuracy = ",
+                           round(test_confMat_rep_cv[["overall"]][["Accuracy"]],3))) %>%
+    kable_styling(full_width = F, position = "float_right")),
+  caption="repeated cross validation")
+
+
+kables(
+  list(
+    test_confMat_cv[["table"]]%>%
+ kable(caption = paste0("cross validation test set, accuracy = ",
+                           round(test_confMat_cv[["overall"]][["Accuracy"]],3))) %>%  kable_styling(full_width = F, position = "float_left"),
+  test_confMat_rep_cv[["table"]]%>%
+  kable(caption = paste0("repeated cross validation test set, accuracy = ",
+                         round(test_confMat_rep_cv[["overall"]][["Accuracy"]],3))) %>%
+  kable_styling(full_width = F, position = "float_right")),
+  caption="test sets comparison")
+
+
+```
+the best result we got was with k=11
+
+
+
+```{r, message=FALSE, warning=FALSE,results='hide'}
+
+knn_norm_table<-CrossTable(x =data_test[,63], y = knn_predictions_rep_cv, prop.chisq=FALSE)
+knn_df_norm_rep_cv<-data.frame(predictions=c(as.numeric(knn_predictions_rep_cv)),labels = c(data_test[,63]))
+pROC_norm_knn_rep_cv <- roc(knn_df_norm_rep_cv$labels,knn_df_norm_rep_cv$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_norm_knn_rep_cv)
+#plot(sens.ci, Class="shape", col="lightblue")
+#plot(sens.ci, Class="bars")
+
+knn_repeatedcv_stats <- data.frame(method="repeated cross validation", 
+                           Accuracy=test_confMat_rep_cv[["overall"]][["Accuracy"]],
+                           AUC=pROC_norm_knn_rep_cv$auc,
+                           Sensitivity=test_confMat_rep_cv[["byClass"]] [["Sensitivity"]], 
+                           Precision=test_confMat_rep_cv[["byClass"]] [["Precision"]], 
+                           Recall=test_confMat_rep_cv[["byClass"]] [["Recall"]]) 
+
+knn_cv_stats[nrow(knn_cv_stats)+1,]=knn_repeatedcv_stats
+kable(knn_cv_stats)
+```
+
+ Let's check z-score 
+### z-score standardization 
+We also tried z-score standardization instead of normalization:
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+
+train_set_z <- as.data.frame(scale(data_train[,-63]))
+test_set_z <- as.data.frame(scale(data_test[,-63]))
+
+train_with_knn_repeatedcv_z<-train(train_set_z,data_train[,63],
+                       method = "knn",
+                       tuneGrid = data.frame(k=seq(1,30,2)),
+                       trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
+                       metric = "Kappa")
+print(paste0("the best k for repeatedcv is: ",train_with_knn_repeatedcv_z[["bestTune"]][["k"]])) # to know which k gave the best result
+
+# use confusionMatrix to check how well we did (check on both the train and the test sets)
+train_confMat_rep_cv_z <- confusionMatrix(predict(train_with_knn_repeatedcv_z, train_set_z, type = "raw"),data_train[,63])
+knn_predictions_rep_cv_z<-predict(train_with_knn_repeatedcv_z, test_set_z, type = "raw")
+test_confMat_rep_cv_z <- confusionMatrix(knn_predictions_rep_cv_z,data_test[,63])
+
+#i got an error:
+#Error in knn(train = train_set_z, test = test_set_z, cl = train_set_labels,  : 
+ # 'train' and 'class' have different lengths
+knn_z_table<-CrossTable(x = data_test[,63], y = knn_predictions_rep_cv_z, prop.chisq=FALSE)
+df_z<-data.frame(predictions=c(as.numeric(knn_predictions_rep_cv_z)),labels = c(data_test[,63]))
+pROC_knn_z <- roc(df_z$labels,df_z$predictions,
+            smoothed = TRUE,
+            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
+            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
+            print.auc=TRUE, show.thres=TRUE)
+sens.ci <- ci.se(pROC_knn_z)
+plot(sens.ci, Class="shape", col="lightblue")
+plot(sens.ci, Class="bars")
+
+knn_repeatedcv_stats_z <- data.frame(method="z score repeated cv", 
+                           Accuracy=test_confMat_rep_cv_z[["overall"]][["Accuracy"]],
+                           AUC=pROC_knn_z$auc,
+                           Sensitivity=test_confMat_rep_cv_z[["byClass"]] [["Sensitivity"]], 
+                           Precision=test_confMat_rep_cv_z[["byClass"]] [["Precision"]], 
+                           Recall=test_confMat_rep_cv_z[["byClass"]] [["Recall"]]) 
+
+knn_cv_stats[nrow(knn_cv_stats)+1,]=knn_repeatedcv_stats_z
+kable(knn_cv_stats)
+```
+
+### feature selection
+
+The DT algorithm uses the feature that provides the most Information
+Gain in every split. Using that logic, the feature that is used the
+least provides the least information gain, and if it doesn't add much
+information it might disturb as noise. Thus, since we know that the
+accuracy of the k-NN algorithm can be severely degraded by the presence
+of noisy or irrelevant features, we tried the KNN algorithm once more,
+with K=15 (it might be easier to improve k=15 with 95% than k=9 with
+97.5%) and without the "Kernel.Length" column (which attributed the
+least to the building of the DT).
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+feat_selec<- knn(train = train_set[-4], test = test_set[-4], cl = train_set_labels, k=15)
+knn9_no4_table<-CrossTable(x = test_set_labels, y = feat_selec, prop.chisq=FALSE)
+acc_knn9_no4 <- sum(diag(knn9_no4_table[["t"]])) / sum(knn9_no4_table[["t"]])
+```
+
+There was no change on accuracy. We tried again without Compactness and
+again without both Compactness and Kernel.Length, and we still got to
+97.5% accuracy
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+#no Compactness
+feat_sel_train <- train_set[-3]
+feat_sel_test <- test_set[-3]
+feat_sel_pred <- knn(train = train_set_z, test = test_set_z, cl = train_set_labels, k=15)
+knn9_no3_table<-CrossTable(x = test_set_labels, y = feat_sel_pred, prop.chisq=FALSE)
+acc_knn9_no3 <- sum(diag(knn9_no3_table[["t"]])) / sum(knn9_no3_table[["t"]])
+#no Compactness and no Kernel.Length
+feat_sel_train <- feat_sel_train[-3]
+feat_sel_test <- feat_sel_test[-3]
+feat_sel_pred <- knn(train = train_set_z, test = test_set_z, cl = train_set_labels, k=21)
+knn9_no3_4_table<-CrossTable(x = test_set_labels, y = feat_sel_pred, prop.chisq=FALSE)
+acc_knn9_no3_no4 <- sum(diag(knn9_no3_4_table[["t"]])) / sum(knn9_no3_4_table[["t"]])
+```
+
+## knn conclusions
+
+```{r, message=FALSE, warning=FALSE}
+knn_acuuracy <- data.frame(num_of_neighbors=c(3,9,15,21,"15+selected"),
+                       acuuracy_val=c(acc_knn3,acc_knn9,acc_knn15,acc_knn21, acc_knn9_no4))
+acuuracy_melted <- melt(knn_acuuracy)
+ggplot(data = knn_acuuracy, aes(num_of_neighbors,acuuracy_val , fill=acuuracy_val)) + geom_col()
+```
+
+We managed to classify our data using the KNN algorithm, with k=3 (not
+normalized or standardized) we got 100% accuracy (and AUC of 1 of
+course). Our results show that- in general- the higher the k is the less
+accurate the algorithm is. We tried using K=9 and without the
+"Kernel.Length" (or "Compactness") column, but that didn't help the
+accuracy at all.
+
+# Random forest
+
+We begin by loading the required libraries:
+
+```{r setup}
+library(tidymodels) # for the rsample package, along with the rest of tidymodels
+library(modeldata)  # for the cells data
+library(vip)        # for variable importance plots
+```
+
+We have data for 196 patients, with 63 features. The main outcome variable of interest for us here is called class, which is a factor.Each row is a patient, classified as "glaucoma"  or "normal" . If we can predict these labels accurately, the larger data set can be improved by filtering out the cells most likely to be poorly segmented.
+
+
+An important aspect when performing prediction is the class balance, lets take a look:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+glaucoma %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+```
+
+We have 50% 'glaucoma' patients and 50% 'normal' patients. We can make the splits with the same proportions as the original data (50/50).
+
+## Data Splitting
+
+To split data, we are using the strata argument, which conducts a stratified split. This ensures that, despite the imbalance we noticed in our class variable, our training and test data sets will keep roughly the same proportions of sick andnormal patients as in the original data.
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+set.seed(123)
+patient_split <- initial_split(glaucoma, 
+                            strata = Class)
+
+glaucoma_train <- training(patient_split)
+glaucoma_test  <- testing(patient_split)
+
+nrow(glaucoma_train)
+nrow(glaucoma_train)/nrow(glaucoma)
+
+# training set proportions by class
+glaucoma_train %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+
+# test set proportions by class
+glaucoma_test %>% 
+  count(Class) %>% 
+  mutate(prop = n/sum(n))
+```
+
+## Random Forest Modeling
+
+The random Forest algorithm uses many decision trees. For classification, which is what
+we are focusing on, the final class result is based on the class that was picked from most trees. 
+
+First we define our model with the parsnip package. Random forests have very little mandatory parameters. 
+Here we only define the number of trees:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# create random forest model
+rf_mod <- 
+  rand_forest(trees = 1000) %>% 
+  set_engine("ranger") %>%   # engine - method of estimation the model will use
+  set_mode("classification")
+```
+
+We want reproducible results, so we set.seed. Taking a look at the model:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# train model
+library(ranger)
+set.seed(234)
+rf_fit <- 
+  rf_mod %>% 
+  fit(Class ~ ., data = glaucoma_train)
+rf_fit
+```
+
+We can see our model had 1000 trees like we specified, and several other metrics, such as the prediction error, 13% here.
+
+### Estimating performance
+
+Next we want to see if we can improve our model. We do this by changing some things about it. 
+The changes can either be random (guessing) or more precise, depending on performance metrics. In our example, we will use the area under the Receiver Operating Characteristic (ROC) curve (which demonstrates the trade-off between the sensitivity and and specificity), and overall classification accuracy.
+
+Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the glaucoma_train partition of our data:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+rf_training_pred <- 
+  predict(rf_fit, glaucoma_train) %>% 
+  bind_cols(predict(rf_fit, glaucoma_train, type = "prob")) %>% 
+  # Add the true outcome data back in
+  bind_cols(glaucoma_train %>% 
+              select(Class))
+
+# ROC calculation
+rf_training_pred %>%                # training set predictions
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation
+rf_training_pred %>%                # training set predictions
+  accuracy(truth = Class, .pred_class)
+
+
+```
+
+As we can see, these are very good results. Almost too good....Lets see how the model performs on the test data:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+rf_testing_pred <- 
+  predict(rf_fit, glaucoma_test) %>% 
+  bind_cols(predict(rf_fit, glaucoma_test, type = "prob")) %>% 
+  bind_cols(glaucoma_test %>% select(Class))
+
+# ROC calculation
+rf_testing_pred %>%                   # test set predictions
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation
+rf_testing_pred %>%                   # test set predictions
+  accuracy(truth = Class, .pred_class)
+```
+
+These validation results are lower than the ones we got on the training data.
+There are several reasons why training set statistics like the ones shown in this section can be unrealistically optimistic:
+
+- Overfitting - Models like random forests, neural networks, and other black-box methods can essentially memorize the training set. Re-predicting that same set should always result in nearly perfect results.
+
+- The training set does not have the capacity to be a good arbiter of performance. It is not an independent piece of information; predicting the training set can only reflect what the model already knows.
+
+## Resampling
+
+Resampling methods, such as cross-validation and the bootstrap, are empirical simulation systems. They create a series of data sets similar to the training/testing split discussed previously; a subset of the data is used for creating the model and a different subset is used to measure performance. Resampling is always used with the training set. 
+
+Here we'll use 10-fold cross-validation. This means that we'll create 10 "mini" datasets, or folds. We call the majority part of the folds (9 out of 10 in this case) the "analysis set" and the minority the "assessment set". We then train a model using the analysis set, and test it on the assessment set, effectively repeating the modeling process 10 times. This is how its done:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# create the folds
+set.seed(345)
+folds <- vfold_cv(glaucoma_train, v = 10)
+folds
+
+# here we use a workflow, which bundles together the model specifications and actual modeling
+# set the random forest workflow 
+rf_wf <- 
+  workflow() %>%
+  add_model(rf_mod) %>%
+  add_formula(Class ~ .)
+
+# add folds to workflow and train model
+set.seed(456)
+rf_fit_rs <- 
+  rf_wf %>% 
+  fit_resamples(folds)
+
+rf_fit_rs
+
+collect_metrics(rf_fit_rs)
+```
+
+We see these results are lower and look more realistic.
+Now, looking at the test set for results, we expect and see much more similar results to the above ROC and accuracy:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# ROC calculation on test predictions
+rf_testing_pred %>%             
+  roc_auc(truth = Class, .pred_glaucoma)
+
+# Accuracy calculation on test predictions
+rf_testing_pred %>%           
+  accuracy(truth = Class, .pred_class)
+```
+
+
+### Tuning hyperparameters
+
+Another way to improve the performance of our models is by changing the parameters we provide them with. This is also called Tuning. Random Forests, as mentioned above, are not very sensitive to such parameters, but decision trees are. Lets see:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# defining the parameters for the decision tree
+tune_spec <- 
+  decision_tree(
+    cost_complexity = tune(), # to control the size of the tree
+    tree_depth = tune()
+  ) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+
+tune_spec
+```
+
+Note that in the above code, tune() is still just a placeholder. 
+We will fill in values later on.
+
+Next, we will create several smaller datasets, to try different parameters. 
+The grid_regular command below will create 5 such datasets for each parameter combination, meaning 25 in total.
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# create 5 'datasets' with different combinations
+tree_grid <- grid_regular(cost_complexity(), 
+                          tree_depth(),
+                          levels = 5)
+
+tree_grid
+
+tree_grid %>% 
+  count(tree_depth)
+
+set.seed(234)
+glaucoma_folds <- vfold_cv(glaucoma_train) # create the actual cross-validation folds
+```
+### Model tuning with a grid
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+set.seed(345)
+# define the workflow
+tree_wf <- workflow() %>%
+  add_model(tune_spec) %>%
+  add_formula(Class ~ .)
+
+# update and train workflow with grids
+tree_res <- 
+  tree_wf %>% 
+  tune_grid(
+    resamples = glaucoma_folds,
+    grid = tree_grid
+    )
+
+tree_res
+
+tree_res %>% 
+  collect_metrics()
+```
+Its easier to see how the models did with a graph:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# plot preformance
+tree_res %>%
+  collect_metrics() %>%
+  mutate(tree_depth = factor(tree_depth)) %>%
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+We can see that our tree with a depth of 1, is the worst model according to both metrics and across all candidate values of cost_complexity. Our deepest tree, with a depth of 15, did better.  The show_best() function shows us the top 5 candidate models by default:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# best tree
+tree_res %>%
+  show_best("roc_auc")
+```
+
+And finally, let's finalize the workflow with the best tree. 
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+best_tree <- tree_res %>%
+  select_best("roc_auc") # Selecting the best tree
+
+best_tree
+
+# Finalize workflow
+final_wf <- 
+  tree_wf %>% 
+  finalize_workflow(best_tree)
+
+final_wf
+```
+### Exploring results
+
+So we have our best tree parameters. Lets take a better look:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+final_tree <- 
+  final_wf %>%
+  fit(data = glaucoma_train) 
+
+final_tree
+```
+
+Another way to look at how the model uses the different features is using the vip package:
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+#final_tree %>% 
+ # pull_workflow_fit() %>% 
+  #vip()
+
+final_tree %>% 
+  extract_fit_parsnip() %>% 
+  vip()
+```
+
+## Finalizing the model
+
+Finally, let’s return to our test data and estimate the model performance we expect to see with new data. We can use the function last_fit() with our finalized model; this function fits the finalized model on the full training data set and evaluates the finalized model on the testing data.
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+# Set workflow
+final_fit <- 
+  final_wf %>%
+  last_fit(patient_split) 
+
+# train
+final_fit %>%
+  collect_metrics()
+
+# collect metrics
+final_fit %>%
+  collect_predictions() %>% 
+  roc_curve(Class, .pred_glaucoma) %>% 
+  autoplot()
+
+args(decision_tree)
+```
+We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions.
