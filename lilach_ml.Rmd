@@ -42,12 +42,12 @@ library(corrplot)
 library(tidyverse)    # data manipulation and visualization
 library(kernlab)      # SVM methodology
 library(e1071)        # SVM methodology
-library(ISLR)         # contains example data set "Khan"
+#library(ISLR)         # contains example data set "Khan"
 library(RColorBrewer) # customized coloring of plot
 library(dplyr)
 library(knitr)
 library(kableExtra)
-library(caret)
+library(caret) # Classification And REgression Training: contains functions to streamline the model training process for complex regression and classification problems.
 
 glaucoma <- read.csv("GlaucomaM.csv")# read data
 ```
@@ -219,22 +219,86 @@ normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
 normalize(c(1, 2, 3, 4, 5)) # test our function 1
 normalize(c(10, 20, 30, 40, 50)) # test our function 2
 train_set_norm <- as.data.frame(lapply(data_train[,-63], normalize))
+train_set_norm$Class <- data_train$Class
 test_set_norm <- as.data.frame(lapply(data_test[,-63], normalize))
+test_set_norm$Class <- data_test$Class
 summary(train_set_norm$ag) # test our dataset
 ```
 
-# KNN algorithm
+# K-Nearest Neighbors (KNN) algorithm
 
-In the KNN Algorithm, k is a user-defined constant, and an unlabeled vector (a query or test point) is classified by assigning the label which is most frequent among the k training samples nearest to that query point.
+The KNN algorithm is a non-parametric supervised learning method, used for classification and regression (we used it for classification). It is based on the assumption that similar objects exist in close proximity (are near to each other). K is a positive integer (a user-defined constant) that represents the number of training samples. An object is classified by a plurality vote of its neighbors, with the object being assigned to the class which is most frequent among the k training samples nearest to that query point.
 
-## run the KNN algorithm 
-### cross validation
-We trained the algorithm on the normalized training set. Instead of choosing a random K to run the algorithm with, we used the 'train' function of the 'caret' library with different options of K (in the range of 1-30)
+## normalized data
+We made a data frame to hold the best results
 ```{r message=FALSE, warning=FALSE}
-train_with_knn_cv<-train(train_set_norm,data_train[,63],
+
+#best_knn_stats <- data.frame(Accuracy=c("Accuracy"), Sensitivity=c("Sensitivity"), Precision=c("Precision"), Specificity=c("Specificity"), K=c("K"))
+#row.names(best_knn_stats)<-c("stats")
+```
+### choose K's manually
+
+We chose and tried k=3,9,11,21, but we show here just for k=3
+```{r message=FALSE, warning=FALSE, results='hide'}
+# with our normalization scaling
+pred_knn_3 <- knn(train = train_set_norm[,-63], test = test_set_norm[,-63], cl = data_train[,63], k=3)
+knn_table_3<-CrossTable(x = data_test[,63], y = pred_knn_3, prop.chisq=FALSE)[["t"]]
+knn_seperate_cv_stats <- data.frame(k=3, Accuracy=accuracy(knn_table_3)$.estimate,
+                           Sensitivity=round(sensitivity(knn_table_3),3), 
+                           Precision=round(precision(knn_table_3),3), 
+                           Specificity=round(specificity(knn_table_3),3))
+```
+```{r message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+
+pred_knn_9 <- knn(train = train_set_norm[,-63], test = test_set_norm[,-63], cl = data_train[,63], k=9)
+knn_table_9<-CrossTable(x = data_test[,63], y = pred_knn_9, prop.chisq=FALSE)[["t"]]
+
+pred_knn_11 <- knn(train = train_set_norm[,-63], test = test_set_norm[,-63], cl = data_train[,63], k=11)
+knn_table_11<-CrossTable(x = data_test[,63], y = pred_knn_11, prop.chisq=FALSE)[["t"]]
+
+pred_knn_21 <- knn(train = train_set_norm[,-63], test = test_set_norm[,-63], cl = data_train[,63], k=21)
+knn_table_21<-CrossTable(x = data_test[,63], y = pred_knn_21, prop.chisq=FALSE)[["t"]]
+
+data.frame(kernel="linear",precision=precision(svm_linear_tbl)$.estimate, recall= recall(svm_linear_tbl)$.estimate, accuracy=accuracy(svm_linear_tbl)$.estimate, AUC=pROC_svm_linear$au)
+
+knn_seperate_cv_stats <- data.frame(
+                           Accuracy=c(accuracy(knn_table_3)$.estimate,
+                                    accuracy(knn_table_9)$.estimate,
+                                    accuracy(knn_table_11)$.estimate,
+                                    accuracy(knn_table_21)$.estimate),
+                           Sensitivity=c(round(sensitivity(knn_table_3),3),
+                                       round(sensitivity(knn_table_9),3),
+                                       round(sensitivity(knn_table_11),3),
+                                       round(sensitivity(knn_table_21),3)), 
+                           Precision=c(round(precision(knn_table_3),3),
+                                       round(precision(knn_table_9),3),
+                                       round(precision(knn_table_11),3),
+                                       round(precision(knn_table_21),3)), 
+                           Specificity=c(round(specificity(knn_table_3),3),
+                                       round(specificity(knn_table_9),3),
+                                       round(specificity(knn_table_11),3),
+                                       round(specificity(knn_table_21),3)),
+                           K=c("k=3","k=9","k=11","k=21"))
+```
+```{r message=FALSE, warning=FALSE}
+print.data.frame(knn_seperate_cv_stats)
+
+best_knn_stats<-knn_seperate_cv_stats[3,]
+rownames(best_knn_stats)<-"KNN manually chosen K's"
+```
+The best results we got was with k=11, with accuracy of 76%, sensitivity of 74.1% and specificy of 78.3% (precision was 80% like k=9 and k=21)
+
+
+Instead of choosing the K's manually we can use tuneGrid and find the best k in the range of 1-30
+
+### choose K's with Caret's "train"
+#### cross validation
+We trained the algorithm on the normalized training set with the 'train' function of the 'caret' library with different options of K (in the range of 1-30). We started with cross validation. 
+```{r message=FALSE, warning=FALSE}
+train_with_knn_cv<-train(Class ~ .,train_set_norm,
                        method = "knn",
-                       tuneGrid = data.frame(k=seq(1,30,2)),
                        trControl = trainControl(method = "cv", number = 10),
+                       tuneGrid = data.frame(k=seq(1,30,2)),
                        metric = "Kappa")
 ```
 ```{r message=FALSE, warning=FALSE, paged.print=TRUE, echo=FALSE}
@@ -242,33 +306,26 @@ print(paste0("the best k for cross validation was: ",train_with_knn_cv[["bestTun
 ```
 We used confusionMatrix to check how well we did (checked on both the train and the test sets).
 ```{r message=FALSE, warning=FALSE}
-knn_predictions_cv<-predict(train_with_knn_cv, test_set_norm, type = "raw")
+knn_predictions_cv<-predict(train_with_knn_cv, test_set_norm)
 confMat_cv <- confusionMatrix(knn_predictions_cv,data_test[,63])
 ```
 We then calculated the statistics
 ```{r message=FALSE, warning=FALSE}
-knn_df_norm_cv<-data.frame(predictions=c(as.numeric(knn_predictions_cv)),labels = c(data_test[,63]))
-pROC_norm_knn_cv <- roc(knn_df_norm_cv$labels,knn_df_norm_cv$predictions,
-            smoothed = TRUE,
-            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
-            plot=FALSE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
-            print.auc=TRUE, show.thres=TRUE)
-sens.ci <- ci.se(pROC_norm_knn_cv)
-knn_cv_stats <- data.frame(method="cross validation", 
+best_knn_stats["KNN cross validation",] <- data.frame( 
                            Accuracy=confMat_cv[["overall"]][["Accuracy"]],
-                           AreaUndertheCurve=pROC_norm_knn_cv$auc,
                            Sensitivity=confMat_cv[["byClass"]] [["Sensitivity"]], 
-                           Precision=confMat_cv[["byClass"]] [["Precision"]], 
-                           Specificity=confMat_cv[["byClass"]] [["Specificity"]])
-#grid.arrange(tableGrob(confMat_cv[["table"]]), tableGrob(knn_cv_stats),ncol=1,nrow=2)
-print(confMat_cv[["table"]])
-print.data.frame(knn_cv_stats, right=FALSE)
+                           Precision=round(confMat_cv[["byClass"]] [["Precision"]],3), 
+                           Specificity=confMat_cv[["byClass"]] [["Specificity"]],
+                           K=paste0("k=",train_with_knn_cv[["bestTune"]][["k"]]))
+#print(confMat_cv[["table"]])
+#print.data.frame(knn_cv_stats, right=FALSE)
+print.data.frame(best_knn_stats, right=FALSE)
 ```
-The sensitivity and recall were both 84%, which is not too bad, but the accuracy was 72%, which is not good, and the precision just 67.7%. 
-We wanted to see if using repeated cross validation will yield better results
-### repeated cross validation
+Compared to the normalized manually chosen data we have an increase in the sensitivity (74.1%->80%), but a significant decrease in the rest (the accuracy went from 76% to 72%, the precision from 80% to 69% and the specificity from 78.3% to 64%).
+We wanted to see if using repeated cross validation will yield better results.
+#### repeated cross validation
 ```{r, message=FALSE, warning=FALSE}
-train_with_knn_repeatedcv<-train(train_set_norm,data_train[,63],
+train_with_knn_repeatedcv<-train(Class ~.,train_set_norm,
                        method = "knn",
                        tuneGrid = data.frame(k=seq(1,30,2)),
                        trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
@@ -279,68 +336,188 @@ print(paste0("the best k for cross validation was: ",train_with_knn_repeatedcv[[
 ```
 Again we used confusionMatrix to check how well we did.
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
-knn_predictions_rep_cv<-predict(train_with_knn_repeatedcv, test_set_norm, type = "raw")
+knn_predictions_rep_cv<-predict(train_with_knn_repeatedcv, test_set_norm)
 confMat_rep_cv <- confusionMatrix(knn_predictions_rep_cv,data_test[,63])
 knn_df_norm_rep_cv<-data.frame(predictions=c(as.numeric(knn_predictions_rep_cv)),labels = c(data_test[,63]))
-pROC_norm_knn_rep_cv <- roc(knn_df_norm_rep_cv$labels,knn_df_norm_rep_cv$predictions)
-knn_repeatedcv_stats <- data.frame(method="repeated cross validation", 
+best_knn_stats["KNN repeated cross validation",] <- data.frame(
                            Accuracy=confMat_rep_cv[["overall"]][["Accuracy"]],
-                           AUC=pROC_norm_knn_rep_cv$auc,
                            Sensitivity=confMat_rep_cv[["byClass"]] [["Sensitivity"]], 
-                           Precision=confMat_rep_cv[["byClass"]] [["Precision"]], 
-                           Specificity=confMat_rep_cv[["byClass"]] [["Specificity"]]) 
+                           Precision=round(confMat_rep_cv[["byClass"]] [["Precision"]],3), 
+                           Specificity=confMat_rep_cv[["byClass"]] [["Specificity"]],
+                           K=paste0("k=", train_with_knn_repeatedcv[["bestTune"]][["k"]])) 
 
-knn_cv_stats[nrow(knn_cv_stats)+1,]=knn_repeatedcv_stats
-#grid.arrange(tableGrob(confMat_rep_cv[["table"]]), tableGrob(knn_cv_stats),ncol=1,nrow=2)
+#knn_cv_stats[nrow(knn_cv_stats)+1,]=knn_repeatedcv_stats
 print(confMat_rep_cv[["table"]])
-print.data.frame(knn_cv_stats, right=FALSE)
+print.data.frame(best_knn_stats, right=FALSE)
 ```
-We saw no difference. We also checked if z-score (instead of normalization) makes a difference
-### z-score standardization 
-```{r knn z score, echo=FALSE, message=FALSE, warning=FALSE}
+We saw no change on most aspects of our statistics, but there was a small decrease in precision from 69% to 68.97%, so we will continue to use cross validation
+
+## z-score standardization 
+### manually
+We then tried with z score scaling instead of normalization. Again we started by choosing manually, and tried k=3,9,11,21, though we show here just for k=3
+```{r message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 train_set_z <- as.data.frame(scale(data_train[,-63]))
 test_set_z <- as.data.frame(scale(data_test[,-63]))
 
+pred_knn_3_z <- knn(train = train_set_z, test = test_set_z, cl = data_train[,63], k=3)
+knn_table_3_z<-CrossTable(x = data_test[,63], y = pred_knn_3_z, prop.chisq=FALSE)[["t"]]
+knn_seperate_cv_stats_z <- data.frame(k=3, Accuracy=accuracy(knn_table_3_z)$.estimate,
+                           Sensitivity=round(sensitivity(knn_table_3_z),3), 
+                           Precision=precision(knn_table_3_z), 
+                           Specificity=round(specificity(knn_table_3_z),3))
+```
+```{r message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+pred_knn_9_z <- knn(train = train_set_z, test = test_set_z, cl = data_train[,63], k=9)
+knn_table_9_z<-CrossTable(x = data_test[,63], y = pred_knn_9_z, prop.chisq=FALSE)[["t"]]
+
+pred_knn_11_z <- knn(train = train_set_z, test = test_set_z, cl = data_train[,63], k=11)
+knn_table_11_z<-CrossTable(x = data_test[,63], y = pred_knn_11_z, prop.chisq=FALSE)[["t"]]
+
+pred_knn_21_z <- knn(train = train_set_z, test = test_set_z, cl = data_train[,63], k=21)
+knn_table_21_z<-CrossTable(x = data_test[,63], y = pred_knn_21_z, prop.chisq=FALSE)[["t"]]
+
+knn_seperate_cv_stats_z <- data.frame(
+                           Accuracy=c(accuracy(knn_table_3_z)$.estimate,
+                                    accuracy(knn_table_9_z)$.estimate,
+                                    accuracy(knn_table_11_z)$.estimate,
+                                    accuracy(knn_table_21_z)$.estimate),
+                           Sensitivity=c(round(sensitivity(knn_table_3_z),3),
+                                       round(sensitivity(knn_table_9_z),3),
+                                       round(sensitivity(knn_table_11_z),3),
+                                       round(sensitivity(knn_table_21_z),3)), 
+                           Precision=c(round(precision(knn_table_3_z),3),
+                                       round(precision(knn_table_9_z),3),
+                                       round(precision(knn_table_11_z),3),
+                                       round(precision(knn_table_21_z),3)), 
+                           Specificity=c(round(specificity(knn_table_3_z),3),
+                                       round(specificity(knn_table_9_z),3),
+                                       round(specificity(knn_table_11_z),3),
+                                       round(specificity(knn_table_21_z),3)),
+                           K=c("k=3","k=9","k=11","k=21"))
+```
+```{r message=FALSE, warning=FALSE}
+print.data.frame(knn_seperate_cv_stats_z)
+best_knn_stats["KNN manually chosen K z",] = knn_seperate_cv_stats_z[2,]
+print.data.frame(best_knn_stats)
+
+
+#grid.arrange(tableGrob(knn_table_3), tableGrob(knn_table_9), tableGrob(knn_table_11), tableGrob(knn_table_21),tableGrob(knn_seperate_cv_stats), ncol=2,nrow=3)
+```
+We saw that the results were much better using the z-score scaling. The best result was from k=9, with accuracy of 82% (rather than 76% or 72% from the normalized data choosing manually or with Caret respectively), sensitivity of 86.4% rather than 74.1% or 80% from the normalized data choosing manually or with Caret respectively) and specificity of 78.6% (rather than 78.3% or 64% from the normalized data choosing manually or with Caret respectively). The 76% precision was higher than the Caret chosen K's (~69%) but lower than the manually chosen K's (80%). All in all we thinl that using z-score to scale did a better job than our normalization. 
+We then proceeded to check the cress validation using Caret again but on scaled data
+### cross validation on scaled data
+```{r knn z score, echo=FALSE, message=FALSE, warning=FALSE}
 train_with_knn_repeatedcv_z<-train(train_set_z,data_train[,63],
                        method = "knn",
                        tuneGrid = data.frame(k=seq(1,30,2)),
-                       trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
+                       trControl = trainControl(method = "cv", number = 10, repeats = 10),
                        metric = "Kappa")
-print(paste0("the best k for repeatedcv with z score is: ",train_with_knn_repeatedcv_z[["bestTune"]][["k"]])) 
-train_cconfMat_rep_cv_z <- confusionMatrix(predict(train_with_knn_repeatedcv_z, train_set_z, type = "raw"),data_train[,63])
-knn_predictions_rep_cv_z<-predict(train_with_knn_repeatedcv_z, test_set_z, type = "raw")
+print(paste0("the best k for cv with z score is: ",train_with_knn_repeatedcv_z[["bestTune"]][["k"]])) 
+train_cconfMat_rep_cv_z <- confusionMatrix(predict(train_with_knn_repeatedcv_z, train_set_z),data_train[,63])
+knn_predictions_rep_cv_z<-predict(train_with_knn_repeatedcv_z, test_set_z)
 confMat_rep_cv_z <- confusionMatrix(knn_predictions_rep_cv_z,data_test[,63])
 
 knn_z_table<-CrossTable(x = data_test[,63], y = knn_predictions_rep_cv_z, prop.chisq=FALSE)
 df_z<-data.frame(predictions=c(as.numeric(knn_predictions_rep_cv_z)),labels = c(data_test[,63]))
-pROC_knn_z <- roc(df_z$labels,df_z$predictions,
-            smoothed = TRUE,
-            ci=TRUE, ci.alpha=0.9, stratified=FALSE,
-            plot=TRUE, auc.polygon=TRUE, max.auc.polygon=TRUE, grid=TRUE,
-            print.auc=TRUE, show.thres=TRUE)
-knn_repeatedcv_stats_z <- data.frame(method="z score repeated cv", 
-                           Accuracy=confMat_rep_cv_z[["overall"]][["Accuracy"]],
-                           AUC=pROC_knn_z$auc,
+best_knn_stats["KNN cross validation z",] <- data.frame(
+                          Accuracy=confMat_rep_cv_z[["overall"]][["Accuracy"]],
                            Sensitivity=confMat_rep_cv_z[["byClass"]][["Sensitivity"]], 
-                           Precision=confMat_rep_cv_z[["byClass"]][["Precision"]], 
-                           Specificity=confMat_rep_cv_z[["byClass"]][["Specificity"]]) 
+                           Precision=round(confMat_rep_cv_z[["byClass"]][["Precision"]],3), 
+                           Specificity=round(confMat_rep_cv_z[["byClass"]][["Specificity"]],3),
+                           K=paste0("k=", train_with_knn_repeatedcv_z[["bestTune"]][["k"]])) 
 
-knn_cv_stats[nrow(knn_cv_stats)+1,]=knn_repeatedcv_stats_z
 ```
-
+Compared to cross validation on normalized data we have increased accuracy (72%->78%), precision (69%->81.8%) and specificity (64%->84%), but decreased sensitivity (80%->72%).
+Compared to manually chosen K's on z-scaled data we have increased precision (76%->81.8%) and specificity (78.6%->84%), but decreased accuracy (82%->78%) and sensitivity (86.4%->72%).
 ## knn conclusions
 ```{r message=FALSE,warning=FALSE}
-print(confMat_rep_cv[["table"]])
-print.data.frame(knn_cv_stats, right=FALSE)
+
+print.data.frame(best_knn_stats)
+
+```
+By looking at the confusion matrices of both the manually and Caret chosen K's 
+```{r message=FALSE,warning=FALSE}
+#best_knn_stats_melted_t<-melt(best_knn_stats_t, id="stats")
+
+
+#ggplot(best_knn_stats_melted_t, aes(x=Var1,y=value,fill=Var2))+  geom_bar(aes(color=Var2),position = 'dodge',, stat='identity')+ annotate(geom = "table",label = list(best_knn_stats_t))
+best_knn_stats["method"]<-rownames(best_knn_stats)
+best_knn_stats_melt<-best_knn_stats %>% select( method,Accuracy,Sensitivity,Precision,Specificity) %>%
+  pivot_longer(., cols = c(Accuracy,Sensitivity,Precision,Specificity), names_to = "statistics", values_to = "percentage")
+
+plotted<-ggplot(best_knn_stats_melt,aes(x = statistics, y = percentage, fill = method)) + geom_bar(position = 'dodge', stat='identity')
+
+grid.arrange(tableGrob(best_knn_stats[,-6]), plotted, nrow = 2, ncol = 1)
+
+
+```
+```{r message=FALSE,warning=FALSE}
+
+ggplot(data = best_knn_stats_melted_t, aes(Var1, value)) + geom_line(aes(colour = Var2))+labs(title = "knn")
+grid.arrange(both+ theme(legend.position="right"), ncol=1, nrow =1)
+
+print.data.frame(best_knn_stats)
+ggplot(best_knn_stats_t, aes(x=rownames(best_knn_stats_t))) +   
+  geom_line(aes(y = colnames(best_knn_stats_t)[4]), color = "darkred") + 
+  geom_line(aes(y = colnames(best_knn_stats_t)[5]), color="steelblue", linetype="twodash")  +labs(title = "knn")
+ggplot(best_knn_stats, aes(color=method)) + geom_bar(position='dodge', stat='identity')
+#+
+    annotate(geom = 'table',
+           x=4,
+           y=0,
+           label=list(best_knn_stats))
+
+grid.arrange(ggplot(knn_table_9_z)+labs(title = "manually chosen"), ggplot(knn_z_table[["t"]])+labs(title = "Caret's cross validation"), ncol=2,nrow=1)
+
 ```
 We did not see any difference whether we used the crossed validation or the repeated cross validation.
 We did see a difference when we used the Z score to scale instead of normalization: we gotincreased accuracy/AUC (from 72% to 84%) and precision (from 67.7% to 90.4%!), but at the cost of the sensitivity/recall (which decreased from 84% to 76%).
 
-# SVM
-Since it is important when using SVM to work only on numeric data, and when each feature is scaled, we made sure our data was numeric (all columns originally numeric, and the ‘Class’ column we factorizes), randomized (we used the ‘sample’ function beforehand) and normalized. We built the model:
+# Support Vector Machines (SVM)
+Support vectors are the data points that define the position and the margin of the hyperplane. They are called “support” vectors, because these are the representative data points of the classes. If we move one of them, the position and/or the margin will change.
+Given a set of training examples, each marked as belonging to one of two categories, an SVM training algorithm builds a model that assigns new examples into that same space and predicts which category they belong to based on which side of the gap they fall. The SVM algorithm maps training examples to points in space so as to maximize the width of the gap between the two categories.
+The effectiveness of SVM depends on the selection of kernel, the kernel's parameters, and soft margin parameter λ. We tried using 4 different kernels and compared their results.
+
+## different kernels
+### default
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# linear
+Class_classifier_svm <-  ksvm(x=Class ~., data=data_train)
+Class_predictions_svm <- predict(Class_classifier_svm, data_test)
+svm_linear_norm <- confusionMatrix(Class_predictions_svm,data_test[,63])
+pROC_svm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_svm)))
+svm_stats_default <- data.frame(method="SVM default", 
+                           Accuracy=svm_linear_norm[["overall"]][["Accuracy"]],
+                           AUC=pROC_svm_linear_norm[["auc"]],
+                           Sensitivity=svm_linear_norm[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_linear_norm[["byClass"]] [["Precision"]], 
+                           Specificity=svm_linear_norm[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]<-svm_stats_default
+```
+###	Linear kernel
+Since it is important when using SVM to work only on numeric and scaled data, we made sure our data was numeric (all columns originally numeric, and the ‘Class’ column we factorizes), randomized (we used the ‘sample’ function beforehand) and scaled. 
+The package we used (kernlab) let us scale the data when running the algorithm itself, so we'll start by scaling with the algorithm. We built the model:
 ```{r SVM train, message=FALSE, warning=FALSE}
+train_svm_linear<-train(Class ~ ., data_train,
+                       method = "svmLinear",
+                       trControl = trainControl(method="repeatedcv", number = 10, repeats = 10),
+                       metric = "Kappa",  
+                       preProcess = c("center","scale"))
+
+svm_predictions_linear<-predict(train_svm_linear, test_set_norm)
+confMat_svm_linear <- confusionMatrix(svm_predictions_linear,data_test[,63])
+
+ #svmRadial, svmPoly
+
 # create and train model
-Class_classifier_linear <-  ksvm(x=train_set$Class, data=data_train[,-63],kernel = "vanilladot")
+# tune model to find optimal cost, gamma values
+tune.out_linear <- tune(svm, Class ~., data=data_train, kernel = "linear",
+                 ranges = list(cost = c(0.1,1,10,100,1000),
+                 gamma = c(0.5,1,2,3,4)))
+# show best model
+tune.out_linear$best.model
+
+Class_classifier_linear <-  ksvm(x=Class ~., data=data_train,kernel = "vanilladot")
 Class_classifier_linear
 ```
 
@@ -352,7 +529,7 @@ Class_predictions_linear <- predict(Class_classifier_linear, data_test[,-63])
 We used the table() function to compare the predicted Class to the true Class in the testing:
 ```{r message=FALSE, warning=FALSE}
 table(Class_predictions_linear, data_test$Class)
-confMat_svm_linear <- confusionMatrix(Class_predictions_linear,data_test[,63])
+svm_linear <- confusionMatrix(Class_predictions_linear,data_test[,63])
 ```
 ```{r message=FALSE, warning=FALSE, results='hide'}
 #svm_table_linear<-CrossTable(data_test$Class, Class_predictions_linear, dnn = c('actual Type', 'predicted Type'))
@@ -366,88 +543,150 @@ Now we wanted to see how well our classifier performed according to the differen
 df_linear<-data.frame(predictions=c(as.numeric(Class_predictions_linear)),labels = c(data_test$Class))
 pROC_svm_linear <- roc(df_linear$labels,df_linear$predictions)
 #svm_linear_stats <- data.frame(kernel="linear",precision=precision(svm_linear_tbl), recall= round(recall(svm_linear_tbl),3), accuracy=accuracy(svm_linear_tbl)$.estimate, AUC=pROC_svm_linear$au)
+
+
 svm_linear_stats <- data.frame(method="SVM linear", 
-                           Accuracy=confMat_svm_linear[["overall"]][["Accuracy"]],
+                           Accuracy=svm_linear[["overall"]][["Accuracy"]],
                            AUC=pROC_svm_linear[["auc"]],
-                           Sensitivity=confMat_svm_linear[["byClass"]] [["Sensitivity"]], 
-                           Precision=confMat_svm_linear[["byClass"]] [["Precision"]], 
-                           Specificity=confMat_svm_linear[["byClass"]] [["Specificity"]])
+                           Sensitivity=svm_linear[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_linear[["byClass"]] [["Precision"]], 
+                           Specificity=svm_linear[["byClass"]] [["Specificity"]])
 
 
 #grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
 #agreement_linear <- Class_predictions_linear == test_set$Class # calculate true/false values
 #prop.table(table(agreement_linear)) # true/false preformance percentage
-print(confMat_svm_linear[["table"]])
+print(svm_linear[["table"]])
 svm_stats<-svm_linear_stats
 print.data.frame(svm_stats, right=FALSE)
 ```
 The accuracy is  0.846 and the AUC is 0.857. These are pretty good results. We want to make them even better, but what's really important for us is to minimize the false negatives- type II error- since we are working with information about patients, a result telling a person that might be sick that he is healthy can be much more problematic than a result telling a healthy person that he might be sick, and our recall is 0.944.
-We still want to see, maybe a different kernel will do a better job?
-
-We tried using the data that we normalized and compared the 2.
-```{r message=FALSE, warning=FALSE, echo=FALSE}
-Class_predictions_linear_norm <- predict(Class_classifier_linear, test_set_norm)
-
-table(Class_predictions_linear_norm, data_test$Class)
-confMat_svm_linear_norm <- confusionMatrix(Class_predictions_linear_norm,data_test[,63])
-
-df_linear_norm<-data.frame(predictions=c(as.numeric(Class_predictions_linear_norm)),labels = c(data_test$Class))
-pROC_svm_linear_norm <- roc(df_linear_norm$labels,df_linear_norm$predictions)
-#svm_linear_stats <- data.frame(kernel="linear",precision=precision(svm_linear_tbl), recall= round(recall(svm_linear_tbl),3), accuracy=accuracy(svm_linear_tbl)$.estimate, AUC=pROC_svm_linear$au)
-svm_linear_norm_stats <- data.frame(method="SVM linear norm", 
-                           Accuracy=confMat_svm_linear_norm[["overall"]][["Accuracy"]],
-                           AUC=pROC_svm_linear_norm[["auc"]],
-                           Sensitivity=confMat_svm_linear_norm[["byClass"]] [["Sensitivity"]], 
-                           Precision=confMat_svm_linear_norm[["byClass"]] [["Precision"]], 
-                           Specificity=confMat_svm_linear_norm[["byClass"]] [["Specificity"]])
 
 
-#agreement_linear <- Class_predictions_linear == test_set$Class # calculate true/false values
-#prop.table(table(agreement_linear)) # true/false preformance percentage
-print(confMat_svm_linear_norm[["table"]])
-svm_stats[nrow(svm_stats)+1,]<-svm_linear_norm_stats
-grid.arrange(tableGrob(svm_stats),ncol=1,nrow=1)
-```
-It looks like using the normalized data actually interferes with the classufucations, so we will use the regular data.
-### Improving SVM Model
-
-There are many kernel functions for SVM, but a standard Gaussian Radial
-basis function (RBF) kernel is a good place to start. We'll use the
-ksvm() function here. Note that since this is a large dataset, running
-times can start to add up:
+### Gaussian Radial basis function (RBF) kernel
+A standard Gaussian Radial basis function (RBF) kernel is the second kernel we tried. We used the ksvm() function here. 
 
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
-# train svm model with RBF kernel function
-Class_classifier_rbf <-  ksvm(x=train_set[,63], data=data_train[,-63],kernel = "rbfdot")
+Class_classifier_rbf <-  ksvm(x=Class ~., data=data_train,kernel = "rbfdot")
 Class_predictions_rbf <- predict(Class_classifier_rbf, data_test[,-63])
-confMat_svm_rbf <- confusionMatrix(Class_predictions_rbf,data_test[,63])
-#svm_table_rbf<-CrossTable(data_test$Class, Class_predictions_rbf,dnn = c('actual Type', 'predicted Type'))
-```
-
-And compare it to the previous model:
-
-```{r message=FALSE, warning=FALSE, echo=FALSE}
+svm_rbf <- confusionMatrix(Class_predictions_rbf,data_test[,63])
 # calculate performance
-
 df_rbf<-data.frame(predictions=c(as.numeric(Class_predictions_rbf)),labels = c(data_test$Class))
 pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions)
 svm_rbf_stats <- data.frame(method="SVM RBF", 
-                           Accuracy=confMat_svm_rbf[["overall"]][["Accuracy"]],
+                           Accuracy=svm_rbf[["overall"]][["Accuracy"]],
                            AUC=pROC_svm_rbf[["auc"]],
-                           Sensitivity=confMat_svm_rbf[["byClass"]] [["Sensitivity"]], 
-                           Precision=confMat_svm_rbf[["byClass"]] [["Precision"]], 
-                           Specificity=confMat_svm_rbf[["byClass"]] [["Specificity"]])
-print(confMat_svm_rbf[["table"]])
+                           Sensitivity=svm_rbf[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_rbf[["byClass"]] [["Precision"]], 
+                           Specificity=svm_rbf[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]=svm_rbf_stats
+```
 
-# compare performance
-svm_stats[nrow(svm_stats),]=svm_rbf_stats #run over the norm that is no longer needed
-print.data.frame(svm_stats, right=FALSE)
+### Polynomial kernel
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+Class_classifier_poly <-  ksvm(x=Class ~., data=data_train,kernel = "polydot")
+Class_predictions_poly <- predict(Class_classifier_poly, data_test[,-63])
+svm_poly <- confusionMatrix(Class_predictions_poly,data_test[,63])
+
+# calculate performance
+df_poly<-data.frame(predictions=c(as.numeric(Class_predictions_poly)),labels = c(data_test$Class))
+pROC_svm_poly <- roc(df_poly$labels,df_poly$predictions)
+svm_poly_stats <- data.frame(method="SVM Polynomial", 
+                           Accuracy=svm_poly[["overall"]][["Accuracy"]],
+                           AUC=pROC_svm_poly[["auc"]],
+                           Sensitivity=svm_poly[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_poly[["byClass"]] [["Precision"]], 
+                           Specificity=svm_poly[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]=svm_poly_stats #run over the norm that is no longer needed
+```
+
+### Hyperbolic tangent kernel
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+Class_classifier_tan <- ksvm(x=Class ~., data=data_train,kernel = "tanhdot")
+Class_predictions_tan <- predict(Class_classifier_tan, data_test[,-63])
+svm_tan <- confusionMatrix(Class_predictions_tan,data_test[,63])
+
+# calculate performance
+df_tan<-data.frame(predictions=c(as.numeric(Class_predictions_tan)),labels = c(data_test$Class))
+pROC_svm_tan <- roc(df_tan$labels,df_tan$predictions)
+svm_tan_stats <- data.frame(method="SVM Hyperbolic tangent", 
+                           Accuracy=svm_tan[["overall"]][["Accuracy"]],
+                           AUC=pROC_svm_tan[["auc"]],
+                           Sensitivity=svm_tan[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_tan[["byClass"]] [["Precision"]], 
+                           Specificity=svm_tan[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]=svm_tan_stats #run over the norm that is no longer needed
+```
+
+We can see a slight decrease in accuracy/AUC (from 88% to 86%), sensitivity (from 84% to 80%) and precision (from 91.3% to 90.9%). In both cases the specificity is 92% which is good.
+Other kernels might prove even better, or the cost of constraints parameter C could be varied to modify the width of the decision boundary.
+
+## pre-normalized data
+We tried using the data that we normalized and compared the 2.
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+# linear
+Class_classifier_linear_norm <-  ksvm(x=Class ~., data=train_set_norm,kernel = "vanilladot", scaled=FALSE)
+Class_predictions_linear_norm <- predict(Class_classifier_linear_norm, test_set_norm)
+svm_linear_norm <- confusionMatrix(Class_predictions_linear_norm,data_test[,63])
+pROC_svm_linear_norm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_linear_norm)))
+svm_linear_norm_stats <- data.frame(method="SVM linear norm", 
+                           Accuracy=svm_linear_norm[["overall"]][["Accuracy"]],
+                           AUC=pROC_svm_linear_norm[["auc"]],
+                           Sensitivity=svm_linear_norm[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_linear_norm[["byClass"]] [["Precision"]], 
+                           Specificity=svm_linear_norm[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]<-svm_linear_norm_stats
+
+# rbf
+Class_classifier_rbf_norm <-  ksvm(x=Class ~., data=train_set_norm,kernel = "rbfdot", scaled=FALSE)
+Class_predictions_rbf_norm <- predict(Class_classifier_rbf_norm, test_set_norm)
+svm_rbf_norm <- confusionMatrix(Class_predictions_rbf_norm,data_test[,63])
+pROC_svm_rbf_norm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_rbf_norm)))
+svm_rbf_norm_stats <- data.frame(method="SVM rbf norm", 
+                           Accuracy=svm_rbf_norm[["overall"]][["Accuracy"]],
+                           AUC=pROC_svm_rbf_norm[["auc"]],
+                           Sensitivity=svm_rbf_norm[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_rbf_norm[["byClass"]] [["Precision"]], 
+                           Specificity=svm_rbf_norm[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]<-svm_rbf_norm_stats
+
+
+# polynomial
+Class_classifier_poly_norm <-  ksvm(x=Class ~., data=train_set_norm,kernel = "polydot", scaled=FALSE)
+Class_predictions_poly_norm <- predict(Class_classifier_poly_norm, test_set_norm)
+svm_poly_norm <- confusionMatrix(Class_predictions_poly_norm,data_test[,63])
+pROC_svm_poly_norm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_poly_norm)))
+svm_poly_norm_stats <- data.frame(method="SVM poly norm", 
+                           Accuracy=svm_poly_norm[["overall"]][["Accuracy"]],
+                           AUC=pROC_svm_poly_norm[["auc"]],
+                           Sensitivity=svm_poly_norm[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_poly_norm[["byClass"]] [["Precision"]], 
+                           Specificity=svm_poly_norm[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]<-svm_poly_norm_stats
+
+# Hyperbolic tangent
+Class_classifier_tan_norm <-  ksvm(x=Class ~., data=train_set_norm,kernel = "tanhdot", scaled=FALSE)
+Class_predictions_tan_norm <- predict(Class_classifier_tan_norm, test_set_norm)
+svm_tan_norm <- confusionMatrix(Class_predictions_tan_norm,data_test[,63])
+pROC_svm_tan_norm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_tan_norm)))
+svm_tan_norm_stats <- data.frame(method="SVM tan norm", 
+                           Accuracy=svm_tan_norm[["overall"]][["Accuracy"]],
+                           AUC=pROC_svm_tan_norm[["auc"]],
+                           Sensitivity=svm_tan_norm[["byClass"]] [["Sensitivity"]], 
+                           Precision=svm_tan_norm[["byClass"]] [["Precision"]], 
+                           Specificity=svm_tan_norm[["byClass"]] [["Specificity"]])
+svm_stats[nrow(svm_stats)+1,]<-svm_tan_norm_stats
+
+grid.arrange(tableGrob(svm_stats),ncol=1,nrow=1)          
+```
+
+## SVM conclusions
+
+```{r}
 
 roc_test<-roc.test(pROC_svm_linear,pROC_svm_rbf)
 roc_test$estimate
 
-svm_linear_stats[nrow(svm_linear_stats)+1,]=svm_rbf_stats
-grid.arrange(tableGrob(svm_linear_stats),ncol=1,nrow=1)
 
 g2 <- ggroc(list(vanilladot=pROC_svm_linear, rbf=pROC_svm_rbf))+labs(title = "linear Vs. RBF")
 
@@ -458,10 +697,6 @@ rbf_roc <- ggroc(pROC_svm_rbf, legacy.axes = TRUE)+ ggtitle("rbf ROC curve") +ge
 grid.arrange(linear_roc + xlab("FPR") + ylab("TPR"),g2+theme(legend.position = "top"),rbf_roc + xlab("FPR") + ylab("TPR"), ncol=3) 
 
 ```
-
-We can see a slight decrease in accuracy/AUC (from 88% to 86%), sensitivity (from 84% to 80%) and precision (from 91.3% to 90.9%). In both cases the specificity is 92% which is good.
-Other kernels might prove even better, or the cost of constraints parameter C could be varied to modify the width of the decision boundary.
-
 # Random forest
 
 We begin by loading the required libraries:
