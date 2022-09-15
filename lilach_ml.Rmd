@@ -56,6 +56,7 @@ library(kableExtra)
 
 
 ```{r}
+
 glaucoma <- read.csv("GlaucomaM.csv")# read data
 ```
 
@@ -88,7 +89,7 @@ print.data.frame(data.frame(set=c("train","test"),glaucoma=c(train_div[1],testdi
 ```
 The training set is what we will use to train the algorithm, to help it learn our data, and then we will run the algorithm on 20% of the data (test set), and predict according to what it learned in the training set, and since it is still our data we have the true class each individual belongs to, so we can evaluate how well the algorithm succeeded in predicting.
 
-We then tried insteead of splitting it out own to try the 'initial_split' function, with the buikt in 'training' and 'testing' functions
+We then tried instead of splitting it out own to try the 'initial_split' function, with the buikt in 'training' and 'testing' functions
 ```{r better splitting, message=FALSE, warning=FALSE, echo=FALSE}
 data <- initial_split(glaucoma, strata = Class )
 data_train <- training(data) # we used the default parameters of splitting size
@@ -133,7 +134,7 @@ can observe one big cluster that could be divided in 2 and 2 others
 clusters of features.
 
 We would like to observe if we can  cluster patients healthy or with glaucoma with all the features.
-We performed first a PCA on all fetures and values.
+We performed first a PCA on all features and values.
 
 ```{r, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
 
@@ -781,7 +782,140 @@ grid.arrange(gtable_knn_9_z,table_cv_z,ncol=2)
 We did not see any difference whether we used the crossed validation or the repeated cross validation.
 We did see a difference when we used the Z score to scale instead of normalization: we gotincreased accuracy/AUC (from 72% to 84%) and precision (from 67.7% to 90.4%!), but at the cost of the sensitivity/recall (which decreased from 84% to 76%).
 
-## Random forest
+## Decision Tree (DT) algorithm
+
+
+
+Set up out environment and data:
+
+```{r setup, results='hide'}
+library(gmodels)
+library(C50)
+
+```
+
+
+
+```{r}
+# apply model in training data (63th column is the label to be predicted)
+DT_model <- C5.0(data_train[-63], data_train$Class)
+
+DT_model
+```
+
+The preceding text shows some simple facts about the tree, including the function
+call that generated it, the number of features (labeled predictors), and examples
+(labeled samples) used to grow the tree. Also listed is the tree size of 62, which
+indicates that the tree is 62 decisions deep.
+
+Next we'll look at the summary of the model. 
+
+```{r}
+summary(DT_model)
+```
+
+The numbers in parentheses indicate the number of examples meeting the criteria for
+that decision, and the number incorrectly classified by the decision. 
+For instance, on the first line, 56/4 indicates that of the 56 examples reaching the decision, 4 were incorrectly classified as not likely to default. In other words, 4 applicants actually defaulted, in spite of the model's prediction.
+
+As we now know, it is very important to evaluate our model performance:
+
+```{r}
+# apply model on test data
+DT_pred <- predict(DT_model, data_test)
+
+CrossTable(data_test$Class, DT_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual class', 'predicted class'))
+```
+
+The performance here is somewhat worse than its performance on the
+training data, but not unexpected, given that a model's performance is often worse
+on unseen data. Also note that there are relatively many mistakes where the model predicted not a default, when in practice the loaner did default. 
+Unfortunately, this type of error is a potentially costly mistake, as sick patients could be blind with time. 
+We will try to improve the result.
+
+### Adaptive Boosting
+
+To improve our model we will use a C5.0 feature called adaptive boosting. This is a process in which many decision trees are built and the trees vote on the best class for each example. 
+
+The C5.0() function makes it easy to add boosting to our C5.0 decision tree. We
+simply need to add an additional trials parameter indicating the number of
+separate decision trees to use in the boosted team. The trials parameter sets an
+upper limit; the algorithm will stop adding trees if it recognizes that additional 
+trials do not seem to be improving the accuracy. 
+We'll start with 10 trials, a number that has become the de facto standard, as research 
+suggests that this reduces error rates on test data by about 25 percent:
+
+```{r}
+# boosting with 10 trials (on training)
+DT_boost10 <- C5.0(data_train[-63], data_train$Class , trials = 10)
+
+DT_boost10
+
+summary(DT_boost10)
+```
+
+The classifier got an error rate of
+0% percent. This is quite an improvement over the previous training error rate
+before adding boosting! However, it remains to be seen whether we see
+a similar improvement on the test data. Let's take a look:
+
+```{r}
+# boosting on test data
+DT_boost_pred10 <- predict(DT_boost10, data_test)
+
+CrossTable(data_test$Class , DT_boost_pred10,
+prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+dnn = c('actual class', 'predicted class'))
+```
+
+The model is still not doing well at predicting class of patients, which may be a result of our relatively small training dataset, or it may just be a very difficult problem to solve.
+
+Next, lets proceed to fine-tune our algorithm, using a cost matrix. 
+The C5.0 algorithm allows us to assign a penalty to different types of errors, in order to discourage a tree from making more costly mistakes. The penalties are designated in a cost matrix, which specifies how much costlier each error is, relative to any other prediction.
+
+First, we'll create a default 2x2 matrix, to later be filled with our cost values:
+
+```{r}
+matrix_dimensions <- list(c("normal", "glaucoma"), c("normal", "glaucoma"))
+names(matrix_dimensions) <- c("predicted", "actual")
+
+matrix_dimensions
+```
+
+If we consider that the most important is to predict a sick patient as sick, much more that a normal patient as normal,
+our penalty values could then be defined as:
+
+```{r}
+error_cost <- matrix(c(0, 6,20, 0), nrow = 2, dimnames = matrix_dimensions)
+
+error_cost
+```
+
+Now lets train again and see if the cost matrix made any difference:
+
+```{r}
+# apply model on training data with cost matrix
+
+dt_cost <- C5.0(data_train[-63], data_train$Class , costs = error_cost)
+
+# predict on test data
+dt_cost_pred <- predict(dt_cost, data_test)
+
+CrossTable(data_test$Class, dt_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual class', 'predicted class'))
+```
+
+Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
+
+
+```{r}
+plot(dt_cost)
+```
+
+
+
+## Random forest (RF) algorithm
+Random forest is a Supervised Machine Learning Algorithm. This algorithm is used in Classification and Regression problems. It builds decision trees on different samples and takes their majority vote for classification and average in case of regression.
+The Random Forest Algorithm can handle the data set containing continuous variables as in the case of regression and categorical variables as in the case of classification.(cf: https://www.analyticsvidhya.com/blog/2021/06/understanding-random-forest/)
 
 We begin by loading the required libraries:
 
@@ -1047,8 +1181,8 @@ final_tree %>%
   extract_fit_parsnip() %>% 
   vip()
 ```
+## Random forest conclusions and Finalizing the model
 
-## Finalizing the model
 
 Finally, let’s return to our test data and estimate the model performance we expect to see with new data. We can use the function last_fit() with our finalized model; this function fits the finalized model on the full training data set and evaluates the finalized model on the testing data.
 
@@ -1068,3 +1202,5 @@ final_fit %>%
 args(decision_tree)
 ```
 We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions.
+
+
