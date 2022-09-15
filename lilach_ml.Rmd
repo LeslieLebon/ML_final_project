@@ -8,10 +8,6 @@ output:
   word_document:
     toc: yes
     toc_depth: 2
-  html_document:
-    toc: yes
-    toc_depth: '2'
-    df_print: paged
 editor_options:
   chunk_output_Type: inline
 ---
@@ -21,46 +17,41 @@ editor_options:
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 library(tidymodels) # for the sampling and splitting the data
-library(class) # for knn
-library(gmodels) # CrossTable
+library(class)
 
-library(tidyverse)    # data manipulation and visualization, including ggplot2
+library(corrplot) # for eda
+
+
+library(tidyverse)    # data manipulation and visualization
+library(ggplot2)
+library(ggfortify) #autoplot
 library(gridExtra) # grid.arrange
 library(grid) # textGrob
 library(gtable) # gtable_add_rows+gtable_add_grob
 
 library(caret) # confusionMatrix
+library(gmodels) # CrossTable
 
+library(caret) # Classification And REgression Training: contains functions to streamline the model training process for complex regression and classification problems.
 library(pROC) # roc
 
 library(kernlab)      # SVM: ksvm
 library(e1071)        # SVM methodology
-library(caret) # Classification And REgression Training: contains functions to streamline the model training process for complex regression and classification problems.
+
+library(C50) # DT
+library(modeldata)  # for the cells data
+library(vip)        # for variable importance plots
+library(ranger)
 
 ```
 
-library(C50)
-library(ROCR)
-library(reshape2)
-#library(ggpmisc)
-library(ggplot2)
-library(grid)
-library(ggfortify)
-library(corrplot)
-#library(ISLR)         # contains example data set "Khan"
-library(RColorBrewer) # customized coloring of plot
-library(dplyr)
-library(knitr)
-library(kableExtra)
 
-
-
-```{r}
+```{r message=FALSE, warning=FALSE}
 
 glaucoma <- read.csv("GlaucomaM.csv")# read data
 ```
 
-We want to classify our data according to the 'Class' column, which contains the information about whether all the information about a person (represented in a row) belongs to a healthy (normal) or sick (glaucoma) patient, divided neatly in half. Before starting on teaching the algorithm, we converted the 'Class' column to a factor.
+We have data from 196 patients, with 63 features. We want to classify our data according to the 'Class' column, which contains the information about whether all the information about a person (represented in a row) belongs to a healthy (normal) or sick (glaucoma) patient, divided neatly in half. Before starting on teaching the algorithm, we converted the 'Class' column to a factor.
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 glaucoma$Class<-as.factor(glaucoma$Class)
 ```
@@ -91,9 +82,9 @@ The training set is what we will use to train the algorithm, to help it learn ou
 
 We then tried instead of splitting it out own to try the 'initial_split' function, with the buikt in 'training' and 'testing' functions
 ```{r better splitting, message=FALSE, warning=FALSE, echo=FALSE}
-data <- initial_split(glaucoma, strata = Class )
-data_train <- training(data) # we used the default parameters of splitting size
-data_test <- testing(data)
+patient_split <- initial_split(glaucoma, strata = Class )
+data_train <- training(patient_split) # we used the default parameters of splitting size
+data_test <- testing(patient_split)
 train_div<-prop.table(table(data_train$Class))
 testdiv<-prop.table(table(data_test$Class))
 print.data.frame(data.frame(set=c("train","test"),glaucoma=c(train_div[1],testdiv[1]), normal=c(train_div[2],testdiv[2])))
@@ -173,7 +164,6 @@ heatmap(x = gl.cor, col = palette, symm = TRUE)
 
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 library("Hmisc")
-#This generates one table of correlation coefficients (the correlation matrix) and another table of the p-values. By default, the correlations and p-values #are stored in an object of class type rcorr. To extract the values from this object into a useable data structure, you can use the following syntax:
 gl.rcorr = rcorr(as.matrix(glaucoma[,c(1:62)]))
 gl.rcorr
 gl.coeff = gl.rcorr$r
@@ -782,25 +772,12 @@ grid.arrange(gtable_knn_9_z,table_cv_z,ncol=2)
 We did not see any difference whether we used the crossed validation or the repeated cross validation.
 We did see a difference when we used the Z score to scale instead of normalization: we gotincreased accuracy/AUC (from 72% to 84%) and precision (from 67.7% to 90.4%!), but at the cost of the sensitivity/recall (which decreased from 84% to 76%).
 
-## Decision Tree (DT) algorithm
+# Decision Tree (DT) algorithm
 
 
-
-Set up out environment and data:
-
-```{r setup, results='hide'}
-library(gmodels)
-library(C50)
-
-```
-
-
-
-```{r}
-# apply model in training data (63th column is the label to be predicted)
+We'll start by applying the model in training data (63th column is the label to be predicted)
+```{r message=FALSE, warning=FALSE}
 DT_model <- C5.0(data_train[-63], data_train$Class)
-
-DT_model
 ```
 
 The preceding text shows some simple facts about the tree, including the function
@@ -808,9 +785,8 @@ call that generated it, the number of features (labeled predictors), and example
 (labeled samples) used to grow the tree. Also listed is the tree size of 62, which
 indicates that the tree is 62 decisions deep.
 
-Next we'll look at the summary of the model. 
-
-```{r}
+Next we looked at the summary of the model. 
+```{r message=FALSE, warning=FALSE, results='hide'}
 summary(DT_model)
 ```
 
@@ -820,11 +796,10 @@ For instance, on the first line, 56/4 indicates that of the 56 examples reaching
 
 As we now know, it is very important to evaluate our model performance:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # apply model on test data
 DT_pred <- predict(DT_model, data_test)
-
-CrossTable(data_test$Class, DT_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual class', 'predicted class'))
+print(confusionMatrix(DT_pred,data_test[,63], dnn = c('actual', 'predicted'))[["table"]])
 ```
 
 The performance here is somewhat worse than its performance on the
@@ -845,12 +820,9 @@ trials do not seem to be improving the accuracy.
 We'll start with 10 trials, a number that has become the de facto standard, as research 
 suggests that this reduces error rates on test data by about 25 percent:
 
-```{r}
+```{r message=FALSE, warning=FALSE, results='hide'}
 # boosting with 10 trials (on training)
 DT_boost10 <- C5.0(data_train[-63], data_train$Class , trials = 10)
-
-DT_boost10
-
 summary(DT_boost10)
 ```
 
@@ -859,13 +831,10 @@ The classifier got an error rate of
 before adding boosting! However, it remains to be seen whether we see
 a similar improvement on the test data. Let's take a look:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # boosting on test data
 DT_boost_pred10 <- predict(DT_boost10, data_test)
-
-CrossTable(data_test$Class , DT_boost_pred10,
-prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
-dnn = c('actual class', 'predicted class'))
+print(confusionMatrix(DT_boost_pred10, data_test[,63], dnn = c('actual', 'predicted'))[["table"]])
 ```
 
 The model is still not doing well at predicting class of patients, which may be a result of our relatively small training dataset, or it may just be a very difficult problem to solve.
@@ -875,90 +844,37 @@ The C5.0 algorithm allows us to assign a penalty to different types of errors, i
 
 First, we'll create a default 2x2 matrix, to later be filled with our cost values:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 matrix_dimensions <- list(c("normal", "glaucoma"), c("normal", "glaucoma"))
 names(matrix_dimensions) <- c("predicted", "actual")
-
-matrix_dimensions
 ```
 
 If we consider that the most important is to predict a sick patient as sick, much more that a normal patient as normal,
 our penalty values could then be defined as:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 error_cost <- matrix(c(0, 6,20, 0), nrow = 2, dimnames = matrix_dimensions)
-
-error_cost
+print(error_cost)
 ```
 
 Now lets train again and see if the cost matrix made any difference:
 
-```{r}
-# apply model on training data with cost matrix
-
+```{r message=FALSE, warning=FALSE}
 dt_cost <- C5.0(data_train[-63], data_train$Class , costs = error_cost)
-
-# predict on test data
-dt_cost_pred <- predict(dt_cost, data_test)
-
-CrossTable(data_test$Class, dt_cost_pred, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('actual class', 'predicted class'))
+dt_cost_pred <- predict(dt_cost, data_test) # predict on test data
+print(confusionMatrix(dt_cost_pred, data_test[,63],dnn = c('actual', 'predicted'))[["table"]])
 ```
 
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 plot(dt_cost)
 ```
 
-
-
-## Random forest (RF) algorithm
+# Random forest (RF) algorithm
 Random forest is a Supervised Machine Learning Algorithm. This algorithm is used in Classification and Regression problems. It builds decision trees on different samples and takes their majority vote for classification and average in case of regression.
 The Random Forest Algorithm can handle the data set containing continuous variables as in the case of regression and categorical variables as in the case of classification.(cf: https://www.analyticsvidhya.com/blog/2021/06/understanding-random-forest/)
-
-We begin by loading the required libraries:
-
-```{r setup}
-library(tidymodels) # for the rsample package, along with the rest of tidymodels
-library(modeldata)  # for the cells data
-library(vip)        # for variable importance plots
-```
-
-We have data for 196 patients, with 63 features. The main outcome variable of interest for us here is called class, which is a factor.Each row is a patient, classified as "glaucoma"  or "normal" . If we can predict these labels accurately, the larger data set can be improved by filtering out the cells most likely to be poorly segmented.
-
-
-An important aspect when performing prediction is the class balance, lets take a look:
-
-```{r}
-glaucoma %>% 
-  count(Class) %>% 
-  mutate(prop = n/sum(n))
-```
-
-We have 50% 'glaucoma' patients and 50% 'normal' patients. We can make the splits with the same proportions as the original data (50/50).
-
-## Data Splitting
-
-To split data, we are using the strata argument, which conducts a stratified split. This ensures that, despite the imbalance we noticed in our class variable, our training and test data sets will keep roughly the same proportions of sick andnormal patients as in the original data.
-
-```{r}
-set.seed(123)
-patient_split <- initial_split(glaucoma, 
-                            strata = Class)
-glaucoma_train <- training(patient_split)
-glaucoma_test  <- testing(patient_split)
-nrow(glaucoma_train)
-nrow(glaucoma_train)/nrow(glaucoma)
-# training set proportions by class
-glaucoma_train %>% 
-  count(Class) %>% 
-  mutate(prop = n/sum(n))
-# test set proportions by class
-glaucoma_test %>% 
-  count(Class) %>% 
-  mutate(prop = n/sum(n))
-```
 
 ## Random Forest Modeling
 
@@ -968,63 +884,47 @@ we are focusing on, the final class result is based on the class that was picked
 First we define our model with the parsnip package. Random forests have very little mandatory parameters. 
 Here we only define the number of trees:
 
-```{r}
+```{r rf_mod, message=FALSE, warning=FALSE}
 # create random forest model
-rf_mod <- 
-  rand_forest(trees = 1000) %>% 
-  set_engine("ranger") %>%   # engine - method of estimation the model will use
-  set_mode("classification")
+rf_mod <-  rand_forest(trees = 1000) %>%  set_engine("ranger") %>% set_mode("classification") 
 ```
 
 We want reproducible results, so we set.seed. Taking a look at the model:
 
-```{r}
+```{r rf_fit, message=FALSE, warning=FALSE}
 # train model
-library(ranger)
-set.seed(234)
-rf_fit <- 
-  rf_mod %>% 
-  fit(Class ~ ., data = glaucoma_train)
+rf_fit <- rf_mod %>% fit(Class ~ ., data = data_train)
 rf_fit
 ```
 
 We can see our model had 1000 trees like we specified, and several other metrics, such as the prediction error, 13% here.
 
-## Estimating performance
+### Estimating performance
 
 Next we want to see if we can improve our model. We do this by changing some things about it. 
 The changes can either be random (guessing) or more precise, depending on performance metrics. In our example, we will use the area under the Receiver Operating Characteristic (ROC) curve (which demonstrates the trade-off between the sensitivity and and specificity), and overall classification accuracy.
 
-Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the glaucoma_train partition of our data:
+Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the data_train partition of our data:
 
-```{r}
-rf_training_pred <- 
-  predict(rf_fit, glaucoma_train) %>% 
-  bind_cols(predict(rf_fit, glaucoma_train, type = "prob")) %>% 
-  # Add the true outcome data back in
-  bind_cols(glaucoma_train %>% 
-              select(Class))
-# ROC calculation
-rf_training_pred %>%                # training set predictions
-  roc_auc(truth = Class, .pred_glaucoma)
-# Accuracy calculation
-rf_training_pred %>%                # training set predictions
-  accuracy(truth = Class, .pred_class)
+```{r RF rf_training_pred, message=FALSE, warning=FALSE}
+rf_training_pred <- predict(rf_fit, data_train) %>% 
+  bind_cols(predict(rf_fit, data_train, type = "prob")) %>% 
+  bind_cols(data_train %>%  select(Class))
+
+rf_training_pred %>%   roc_auc(truth = Class, .pred_glaucoma)# ROC calculation
+rf_training_pred %>%  accuracy(truth = Class, .pred_class)# Accuracy calculation
 ```
 
 As we can see, these are very good results. Almost too good, so we would like to see how the model performs on the test data:
 
-```{r}
+```{r RF rf_testing_pred, message=FALSE, warning=FALSE}
 rf_testing_pred <- 
-  predict(rf_fit, glaucoma_test) %>% 
-  bind_cols(predict(rf_fit, glaucoma_test, type = "prob")) %>% 
-  bind_cols(glaucoma_test %>% select(Class))
-# ROC calculation
-rf_testing_pred %>%                   # test set predictions
-  roc_auc(truth = Class, .pred_glaucoma)
-# Accuracy calculation
-rf_testing_pred %>%                   # test set predictions
-  accuracy(truth = Class, .pred_class)
+  predict(rf_fit, data_test) %>% 
+  bind_cols(predict(rf_fit, data_test, type = "prob")) %>% 
+  bind_cols(data_test %>% select(Class))
+
+rf_testing_pred %>%  roc_auc(truth = Class, .pred_glaucoma) # ROC calculation
+rf_testing_pred %>%   accuracy(truth = Class, .pred_class) # Accuracy calculation
 ```
 
 These validation results are lower than the ones we got on the training data.
@@ -1040,36 +940,27 @@ Resampling methods, such as cross-validation and the bootstrap, are empirical si
 
 Here we'll use 10-fold cross-validation. This means that we'll create 10 "mini" datasets, or folds. We call the majority part of the folds (9 out of 10 in this case) the "analysis set" and the minority the "assessment set". We then train a model using the analysis set, and test it on the assessment set, effectively repeating the modeling process 10 times. This is how its done:
 
-```{r}
-# create the folds
-set.seed(345)
-folds <- vfold_cv(glaucoma_train, v = 10)
+```{r RF folds, message=FALSE, warning=FALSE, results='hide'}
+folds <- vfold_cv(data_train, v = 10) # create the folds
 folds
 # here we use a workflow, which bundles together the model specifications and actual modeling
 # set the random forest workflow 
-rf_wf <- 
-  workflow() %>%
-  add_model(rf_mod) %>%
-  add_formula(Class ~ .)
+rf_wf <-   workflow() %>%  add_model(rf_mod) %>%  add_formula(Class ~ .)
+
 # add folds to workflow and train model
-set.seed(456)
-rf_fit_rs <- 
-  rf_wf %>% 
-  fit_resamples(folds)
+rf_fit_rs <-   rf_wf %>%   fit_resamples(folds)
 rf_fit_rs
-collect_metrics(rf_fit_rs)
+```
+```{r message=FALSE, warning=FALSE}
+print(collect_metrics(rf_fit_rs))
 ```
 
 We see these results are lower and look more realistic.
 Now, looking at the test set for results, we expect and see much more similar results to the above ROC and accuracy:
 
-```{r}
-# ROC calculation on test predictions
-rf_testing_pred %>%             
-  roc_auc(truth = Class, .pred_glaucoma)
-# Accuracy calculation on test predictions
-rf_testing_pred %>%           
-  accuracy(truth = Class, .pred_class)
+```{r rf_testing_pred stats, message=FALSE, warning=FALSE}
+rf_testing_pred %>%    roc_auc(truth = Class, .pred_glaucoma)
+rf_testing_pred %>% accuracy(truth = Class, .pred_class)
 ```
 
 
@@ -1077,15 +968,10 @@ rf_testing_pred %>%
 
 Another way to improve the performance of our models is by changing the parameters we provide them with. This is also called Tuning. Random Forests, as mentioned above, are not very sensitive to such parameters, but decision trees are. Lets see:
 
-```{r}
+```{r Tuning tune_spec, message=FALSE, warning=FALSE, results='hide'}
 # defining the parameters for the decision tree
-tune_spec <- 
-  decision_tree(
-    cost_complexity = tune(), # to control the size of the tree
-    tree_depth = tune()
-  ) %>% 
-  set_engine("rpart") %>% 
-  set_mode("classification")
+tune_spec <-   decision_tree(cost_complexity = tune(), # to control the size of the tree
+    tree_depth = tune()) %>% set_engine("rpart") %>%   set_mode("classification")
 tune_spec
 ```
 
@@ -1095,39 +981,28 @@ We will fill in values later on.
 Next, we will create several smaller datasets, to try different parameters. 
 The grid_regular command below will create 5 such datasets for each parameter combination, meaning 25 in total.
 
-```{r}
+```{r Tuning tree_grid, message=FALSE, warning=FALSE, results='hide'}
 # create 5 'datasets' with different combinations
 tree_grid <- grid_regular(cost_complexity(), 
                           tree_depth(),
                           levels = 5)
 tree_grid
-tree_grid %>% 
-  count(tree_depth)
-set.seed(234)
-glaucoma_folds <- vfold_cv(glaucoma_train) # create the actual cross-validation folds
+tree_grid %>%   count(tree_depth)
+glaucoma_folds <- vfold_cv(data_train) # create the actual cross-validation folds
 ```
-## Model tuning with a grid
+### Model tuning with a grid
 
-```{r}
-set.seed(345)
+```{r Tuning tree_wf,message=FALSE, warning=FALSE, results='hide'}
 # define the workflow
-tree_wf <- workflow() %>%
-  add_model(tune_spec) %>%
-  add_formula(Class ~ .)
+tree_wf <- workflow() %>%  add_model(tune_spec) %>%  add_formula(Class ~ .)
 # update and train workflow with grids
-tree_res <- 
-  tree_wf %>% 
-  tune_grid(
-    resamples = glaucoma_folds,
-    grid = tree_grid
-    )
+tree_res <- tree_wf %>%  tune_grid(resamples = glaucoma_folds, grid = tree_grid)
 tree_res
-tree_res %>% 
-  collect_metrics()
+tree_res %>% collect_metrics()
 ```
 Its easier to see how the models did with a graph:
 
-```{r}
+```{r RF plot preformance, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 # plot preformance
 tree_res %>%
   collect_metrics() %>%
@@ -1142,65 +1017,48 @@ tree_res %>%
 
 We can see that our tree with a depth of 1, is the worst model according to both metrics and across all candidate values of cost_complexity. Our deepest tree, with a depth of 15, did better.  The show_best() function shows us the top 5 candidate models by default:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # best tree
-tree_res %>%
-  show_best("roc_auc")
+tree_res %>%  show_best("roc_auc")
 ```
 
 And finally, let's finalize the workflow with the best tree. 
 
-```{r}
-best_tree <- tree_res %>%
-  select_best("roc_auc") # Selecting the best tree
+```{r RF best_tree final_wf, message=FALSE, warning=FALSE}
+best_tree <- tree_res %>%  select_best("roc_auc") # Selecting the best tree
 best_tree
 # Finalize workflow
-final_wf <- 
-  tree_wf %>% 
-  finalize_workflow(best_tree)
+final_wf <-   tree_wf %>%   finalize_workflow(best_tree)
 final_wf
 ```
-## Exploring results
+### Exploring results
 
 So we have our best tree parameters. Lets take a better look:
 
-```{r}
-final_tree <- 
-  final_wf %>%
-  fit(data = glaucoma_train) 
+```{r  Exploring results final_tree, message=FALSE, warning=FALSE}
+final_tree <-   final_wf %>%  fit(data = data_train) 
 final_tree
 ```
 
 Another way to look at how the model uses the different features is using the vip package:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #final_tree %>% 
  # pull_workflow_fit() %>% 
   #vip()
-final_tree %>% 
-  extract_fit_parsnip() %>% 
-  vip()
+final_tree %>%   extract_fit_parsnip() %>%   vip()
 ```
 ## Random forest conclusions and Finalizing the model
 
 
 Finally, let’s return to our test data and estimate the model performance we expect to see with new data. We can use the function last_fit() with our finalized model; this function fits the finalized model on the full training data set and evaluates the finalized model on the testing data.
 
-```{r}
-# Set workflow
-final_fit <- 
-  final_wf %>%
-  last_fit(patient_split) 
-# train
-final_fit %>%
-  collect_metrics()
-# collect metrics
-final_fit %>%
-  collect_predictions() %>% 
-  roc_curve(Class, .pred_glaucoma) %>% 
-  autoplot()
+```{r Random forest conclusions, message=FALSE, warning=FALSE}
+final_fit <- final_wf %>%  last_fit(patient_split) # Set workflow
+final_fit %>%  collect_metrics()# train
+final_fit %>%  collect_predictions() %>%  # collect metrics
+  roc_curve(Class, .pred_glaucoma) %>%   autoplot()
 args(decision_tree)
 ```
 We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions.
-
 
