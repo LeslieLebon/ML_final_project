@@ -164,7 +164,7 @@ patients. Unfortunately, some of them were not clustered correctly (mixed clouds
 #calculation of correlation, using pearson correlation
 gl.cor = cor(glaucoma[,c(1:62)], method = c("pearson"))
 
-corrplot(gl.cor)
+#corrplot(gl.cor)
 
 palette = colorRampPalette(c("green", "white", "red")) (20)
 heatmap(x = gl.cor, col = palette, symm = TRUE)
@@ -194,7 +194,7 @@ colSums(glaucoma[,c(1:62)] != 0)
 ```
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 gl.cor2 = cor(data_new, method = c("pearson"))
-corrplot(gl.cor2)
+#corrplot(gl.cor2)
 heatmap(x = gl.cor2, col = palette, symm = TRUE)
 
 
@@ -220,7 +220,7 @@ gl_pca_plot2 <- autoplot(gl.pca2,
                           data = glaucoma,
                           colour = 'Class')
 gl_pca_plot2
-gl_pca_plot
+#gl_pca_plot
 ```
 
 
