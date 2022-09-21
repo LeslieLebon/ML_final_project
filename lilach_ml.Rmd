@@ -880,7 +880,10 @@ best_stats<-cbind(svm_best_stats["RBF",], notes="RBF")
 rownames(best_stats)<-"SVM"
 ```
 
+
+
 # K-Nearest Neighbors (KNN) algorithm
+
 The KNN algorithm is a non-parametric supervised learning method, used for classification and regression (we used it for classification). It is based on the assumption that similar objects exist in close proximity (are near to each other). K is a positive integer (a user-defined constant) that represents the number of training samples. An object is classified by a plurality vote of its neighbors, with the object being assigned to the class which is most frequent among the k training samples nearest to that query point.
 
 ## normalized data
@@ -939,8 +942,8 @@ knn_seperate_cv_stats_new <- data.frame(Accuracy=accuracy(knn_table_11_new)$.est
 knn_seperate_cv_stats_new$General <- round(calc_score(knn_seperate_cv_stats_new),3)
 ```
 ```{r message=FALSE, warning=FALSE, echo=FALSE, fig.width=6, fig.height=3}
-print(paste(paste0("the whole dataset's score (with k=11) is ", best_knn_seperate_cv_stats$General),
-            paste0("; the abridged dataset's score is ", knn_seperate_cv_stats$General)))
+print(paste(paste0("k=11: the whole dataset's score is ", best_knn_seperate_cv_stats$General),
+            paste0("= the abridged dataset's score == ", knn_seperate_cv_stats_new$General)))
 best_knn_stats<-best_knn_seperate_cv_stats
 rownames(best_knn_stats)<-c("manually chosen K's")
 ```
@@ -986,13 +989,13 @@ knn_cv_new_stats<- data.frame(
                            K=paste0("k=3"))
 knn_cv_stats$General<-round(calc_score(knn_cv_stats),3)
 knn_cv_new_stats$General<-round(calc_score(knn_cv_new_stats),3)
-print(paste(paste0("the whole dataset's score using cross validation is ", knn_cv_stats$General ),
-            paste0("; the abridged dataset's score is ", knn_cv_new_stats$General)))
+print(paste(paste0("CV: the whole dataset's sscore = ", knn_cv_stats$General ),
+            paste0("> the abridged dataset's score = ", knn_cv_new_stats$General)))
 ```
 We then looiked at the statistics
 ```{r echo=FALSE}
 print.data.frame(knn_cv_new_stats)
-best_knn_stats["cross validation, no corr",]<-knn_cv_new_stats
+best_knn_stats["CV, selected",]<-knn_cv_new_stats
 ```
 We again did the same thing just on the dataset that didn't include high correlations. The overall grade was higher for the dataset that didn't include high correlations.
 Compared to the normalized manually chosen data we have an increase in the sensitivity (74.1%->80%), but a significant decrease in the rest (the accuracy went from 76% to 72%, the precision from 80% to 69% and the specificity from 78.3% to 64%).
@@ -1044,9 +1047,9 @@ knn_repeatedcv_new_stats$General<-round(calc_score(knn_repeatedcv_new_stats),3)
 
 ```
 ```{r echo=FALSE}
-print(paste(paste0("the whole dataset's score using repeated CV is ",knn_repeatedcv_stats$General),
-            paste0(", and without highly correlated features it is ",knn_repeatedcv_new_stats$General)))
-best_knn_stats["repeated cross validation",]<-knn_repeatedcv_stats
+print(paste(paste0("repeated CV: the whole dataset's score = ",knn_repeatedcv_stats$General),
+            paste0("> and the abridged dataset's score = ",knn_repeatedcv_new_stats$General)))
+best_knn_stats["repeated CV",]<-knn_repeatedcv_stats
 ```
 This time there was no difference between the 2 datasets.
 
@@ -1098,19 +1101,19 @@ We got the best result from k=9. We wanted again to check if we can get better r
 pred_knn_9_z_new <- knn(train = train_set_z_new[,-21], test = test_set_z_new[,-21], cl = data_train[,63], k=9)
 knn_table_9_z_new<-CrossTable(x = data_test[,63], y = pred_knn_9_z_new, prop.chisq=FALSE)[["t"]]
 knn_seperate_cv_stats_z_new <- data.frame(Accuracy=accuracy(knn_table_9_z_new)$.estimate,
-                           Sensitivity=round(sensitivity(knn_table_9_z_new),9), 
-                           Precision=round(precision(knn_table_9_z_new),9), 
-                           Specificity=round(specificity(knn_table_9_z_new),9),k="k=9")
+                           Sensitivity=round(sensitivity(knn_table_9_z_new),3), 
+                           Precision=round(precision(knn_table_9_z_new),3), 
+                           Specificity=round(specificity(knn_table_9_z_new),3),k="k=9")
 
 knn_seperate_cv_stats_z_best$General<-round(calc_score(knn_seperate_cv_stats_z_best),3)
 knn_seperate_cv_stats_z_new$General<-round(calc_score(knn_seperate_cv_stats_z_new),3)
-print(paste(paste0("the whole z-scaled dataset's score with k=9 is ",knn_seperate_cv_stats_z_best$General),
-            paste0("; the abridged dataset's score is ",knn_seperate_cv_stats_z_new$General)))
+print(paste(paste0("k=9: the whole z-scaled dataset's score = ",knn_seperate_cv_stats_z_best$General),
+            paste0("< the abridged dataset's score = ",knn_seperate_cv_stats_z_new$General)))
 ```
 We indeed got (slightly) better results out of the smaller dataset, so that is what we saved.
 ```{r message=FALSE, warning=FALSE}
 print.data.frame(knn_seperate_cv_stats_z_new)
-best_knn_stats["manually chosen, scaled, no corr",] = knn_seperate_cv_stats_z_new
+best_knn_stats["manually, scaled, selected",] = knn_seperate_cv_stats_z_new
 ```
 
 We saw that the results were much better using the z-score scaling. The best result was from k=9, with accuracy of 82% (rather than 76% or 72% from the normalized data choosing manually or with Caret respectively), sensitivity of 86.4% rather than 74.1% or 80% from the normalized data choosing manually or with Caret respectively) and specificity of 78.6% (rather than 78.3% or 64% from the normalized data choosing manually or with Caret respectively). The 76% precision was higher than the Caret chosen K's (~69%) but lower than the manually chosen K's (80%). All in all we thinl that using z-score to scale did a better job than our normalization. 
@@ -1162,9 +1165,9 @@ knn_cv_stats_z_new$General<-round(calc_score(knn_cv_stats_z_new),3)
 Again we got better results out of the smaller dataset.
 
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
-print(paste(paste0("the whole z-scaled dataset's score using CV is ",knn_cv_stats$General),
-            paste0("; the abridged dataset's score is ",knn_cv_stats_z_new$General)))
-best_knn_stats["cross validation, scaled, no corr",] = knn_cv_stats_z_new
+print(paste(paste0("CV: the whole z-scaled dataset's score using is ",knn_cv_stats$General),
+            paste0("< the abridged dataset's score = ",knn_cv_stats_z_new$General)))
+best_knn_stats["CV, scaled, selected",] = knn_cv_stats_z_new
 print.data.frame(knn_cv_stats_z_new)
 ```
 
@@ -1184,7 +1187,7 @@ plotted_knn<-ggplot(best_knn_stats_melt,aes(x=statistics, y=percentage, fill=met
 #grid.arrange( plotted_knn, tableGrob(best_knn_stats[,-6]),nrow = 2, ncol = 1)
 ```
 ```{r message=FALSE,warning=FALSE, echo=FALSE}
-print.data.frame(best_knn_stats)
+print.data.frame(best_knn_stats %>% select(Accuracy,Sensitivity, Precision, Specificity,General))
 t_knn_9_z <- tableGrob(knn_table_9_z)
 gtitle_knn_9_z <- textGrob("manually chosen (k=9)")
 gtable_knn_9_z <- gtable_add_rows(t_knn_9_z, heights = grobHeight(gtitle_knn_9_z)+ unit(5,"mm"), pos = 0)
@@ -1200,7 +1203,7 @@ grid.arrange(gtable_knn_9_z,table_cv_z,ncol=2)
 #grid.newpage()
 #grid.draw(table_cv_z)
 
-best_stats["KNN",]<-cbind(best_knn_stats["linear norm",], notes="linear norm")
+#best_stats["KNN",]<-cbind(best_knn_stats["linear norm",], notes="linear norm")
 ```
 
 We did not see any difference whether we used the crossed validation or the repeated cross validation.
@@ -1208,7 +1211,6 @@ We did see a difference when we used the Z score to scale instead of normalizati
 The manually chosen (k=9) had one less false negative 
 
 # Decision Tree (DT) algorithm
-
 
 ```{r message=FALSE, warning=FALSE}
 DT_model <- C5.0(data_train[-63], data_train$Class)
