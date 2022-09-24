@@ -1212,6 +1212,8 @@ The manually chosen (k=9) had one less false negative
 
 # Decision Tree (DT) algorithm
 
+Decision Trees are a type of Supervised Machine Learning (that is you explain what the input is and what the corresponding output is in the training data) where the data is continuously split according to a certain parameter. The tree can be explained by two entities, namely decision nodes and leaves (cf https://www.xoriant.com/).
+
 ```{r message=FALSE, warning=FALSE}
 DT_model <- C5.0(data_train[-63], data_train$Class)
 ```
