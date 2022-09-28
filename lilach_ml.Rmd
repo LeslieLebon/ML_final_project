@@ -1,7 +1,7 @@
 ---
 title: "Final Project"
 author: "Lilach Herzog & Leslie Cohen"
-date: "13 9 2022"
+date: "29 9 2022"
 output:
   pdf_document:
     fig_caption: yes
@@ -835,7 +835,7 @@ We saw that out of all the kernels, the standard Gaussian Radial basis function 
 ```{r message=FALSE, warning=FALSE, echo=FALSE, fig.height=3, fig.width=7}
 
 
-knitr::kable(svm_best_stats)%>% kable_paper("striped", full_width = F) %>% column_spec(6, bold = T) %>%  row_spec(1, bold = T, color = "black", background = "yellow")
+knitr::kable(svm_best_stats, caption = 'best SVM results')%>% kable_paper("striped", full_width = F) %>% column_spec(6, bold = T) %>%  row_spec(1, bold = T, color = "black", background = "yellow")
 
 
 t_svm_stats_best <- tableGrob(svm_best_stats)
@@ -1043,9 +1043,7 @@ knitr::kable(best_knn_stats[,-5], caption = " KNN- normalized data")%>%
   column_spec(6, bold = T) %>%
   row_spec(1, bold = T, color = "black", background = "yellow")
 ```
-```{r}
-print.data.frame(best_knn_stats[,-5])
-```
+
 
 We wanted to see if we get better results if we use scaling on our data instead of normalizing. Between CV and repeated CV, on the smaller dataset we got better results using repeated CV, but they were both not as good as the one from the whole dataset, which there was no difference between the 2, so we will run the algorithm on the scaled dataset using repeated cross validation (and choosing manually, which so far yielded the best results).
 
@@ -1169,6 +1167,7 @@ Again we got better results out of the smaller dataset (accuracy from 84%0>86%, 
 We did not see any difference whether we used the crossed validation or the repeated cross validation.
 We got worse results when we used the smaller dataset on the normalized data, but much better on the scaled data.
 Interestingly, the best results were with the manually chosen K's (when K=3). using CV and repeated CV the best resukt was with K=17. We had manually chosen K=15 and K=21, and both were not as good as K=3.
+Using KNN algorithm with K=3 on scaled data with only the selected featured gave us the best result yet.
 ```{r message=FALSE,warning=FALSE, echo=FALSE, fig.show='hide'}
 #print.data.frame(best_knn_stats %>% select(Accuracy,Sensitivity, Precision, Specificity,General))
 
