@@ -110,14 +110,14 @@ patients. Unfortunately, some of them were not clustered correctly (mixed clouds
 This mixture could be, probably to the fact that many features correlate, so our next course of action was to check for any correlation between features to determine which feature are correlated by using pearson correlation
 
 
-```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide', echo=FALSE}
 gl.cor = cor(glaucoma[,c(1:62)], method = c("pearson"))
 corrplot(gl.cor)
 palette = colorRampPalette(c("green", "white", "red")) (20)
 heatmap(x = gl.cor, col = palette, symm = TRUE)
 ```
 
-```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide',echo=FALSE}
 gl.rcorr = rcorr(as.matrix(glaucoma[,c(1:62)]))
 gl.rcorr
 gl.coeff = gl.rcorr$r
@@ -127,21 +127,34 @@ cor_matrix_rm[upper.tri(cor_matrix_rm)] <- 0
 diag(cor_matrix_rm) <- 0
 
 data<-glaucoma[,c(1:62)]
+```
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 # Remove highly correlated variables
 data_no_corr <- data[ , !apply(cor_matrix_rm,  2,function(x) any(x > 0.8))]
+```
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide',echo=FALSE}
 head(data_no_corr)
 colSums(glaucoma[,c(1:62)] != 0)
+```
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 
 gl.cor2 = cor(data_no_corr, method = c("pearson"))
+```
+```
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide',echo=FALSE}
+
 corrplot(gl.cor2)
 heatmap(x = gl.cor2, col = palette, symm = TRUE)
 ```
 Preform PCA on our new data
-```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide',echo=FALSE}
 corr_pca <- prcomp(data_no_corr, center = TRUE, scale. = TRUE)#play with options
 summary(corr_pca)
 data_no_corr$Class<-glaucoma$Class
 corr_pca_plot <- autoplot(corr_pca, data = data_no_corr, colour = 'Class')
+```
+```{r, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+
 fit_corr_pca  <- lm(Class ~ ., cbind(Class = glaucoma$Class, corr_pca$x[, 1:2])
                     %>% as.data.frame())
 ```
