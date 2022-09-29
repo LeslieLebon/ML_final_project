@@ -1231,9 +1231,10 @@ For instance, on the first line, 56/4 indicates that of the 56 examples reaching
 
 As we now know, it is very important to evaluate our model performance:
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,results='hide'}
 DT_pred <- predict(DT_model, data_test)
 DT_pred_tbl<- confusionMatrix(DT_pred,data_test[,63])
+#confusion table
 print(DT_pred_tbl[["table"]])
 best_dt_stats <- data.frame( 
                           Accuracy=DT_pred_tbl[["overall"]][["Accuracy"]],
@@ -1241,6 +1242,10 @@ best_dt_stats <- data.frame(
                            Precision=round(DT_pred_tbl[["byClass"]][["Precision"]],3), 
                            Specificity=round(DT_pred_tbl[["byClass"]][["Specificity"]],3)) 
 rownames(best_dt_stats)<-c("DT default")
+```
+```{r message=FALSE, warning=FALSE}
+knitr::kable(best_dt_stats , caption = ' best DT results')%>%
+  kable_paper("striped", full_width = F)
 ```
 
 The performance here is somewhat worse than its performance on the
@@ -1281,7 +1286,10 @@ best_dt_stats["boosting with 10 trials",] <- data.frame(
                            Precision=round(DT_boost_pred10_tbl[["byClass"]][["Precision"]],3), 
                            Specificity=round(DT_boost_pred10_tbl[["byClass"]][["Specificity"]],3)) 
 ```
-
+```{r message=FALSE, warning=FALSE,echo=FALSE}
+knitr::kable(best_dt_stats , caption = ' best DT after boost results')%>%
+  kable_paper("striped", full_width = F) 
+```
 The model is still not doing well at predicting class of patients, which may be a result of our relatively small training dataset, or it may just be a very difficult problem to solve.
 
 Next, lets proceed to fine-tune our algorithm, using a cost matrix. 
@@ -1297,20 +1305,24 @@ names(matrix_dimensions) <- c("predicted", "actual")
 If we consider that the most important is to predict a sick patient as sick, much more that a normal patient as normal,
 our penalty values could then be defined as:
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 error_cost <- matrix(c(0, 6,20, 0), nrow = 2, dimnames = matrix_dimensions)
-print(error_cost)
+#print(error_cost)
+knitr::kable(error_cost , caption = ' error cost')%>%
+  kable_paper("striped", full_width = F) 
 ```
 
 Now lets train again and see if the cost matrix made any difference:
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 dt_cost <- C5.0(data_train[-63], data_train$Class , costs = error_cost)
 dt_cost_pred <- predict(dt_cost, data_test) # predict on test data
 dt_cost_pred_tbl<-confusionMatrix(dt_cost_pred, data_test[,63],dnn = c('predicted', 'actual'))
-print(dt_cost_pred_tbl[["table"]])
+#print(dt_cost_pred_tbl[["table"]])
+knitr::kable(dt_cost_pred_tbl[["table"]] , caption = ' confusion matrix ')%>%
+  kable_paper("striped", full_width = F) 
 ```
-```{r message=FALSE, warning=FALSE, echo=FALSE}
+```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
 best_dt_stats["fine tuning with cost matrix",] <- data.frame(
                           Accuracy=dt_cost_pred_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(dt_cost_pred_tbl[["byClass"]][["Sensitivity"]],3), 
@@ -1319,15 +1331,20 @@ best_dt_stats["fine tuning with cost matrix",] <- data.frame(
 ```
 ```{r message=FALSE, warning=FALSE}
 best_dt_stats$General <- calc_score(best_dt_stats)
-print.data.frame(best_dt_stats)
-best_stats["DT",]<-cbind(best_dt_stats["default",], notes="default")
+#print.data.frame(best_dt_stats)
+#best_stats["DT",]<-cbind(best_dt_stats["default",], notes="default")
 ```
-
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+knitr::kable(best_dt_stats , caption = ' best  DT stat ')%>%
+  kable_paper("striped", full_width = F) 
+```  
+  
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
+With the bossted model, we have 72% of chances that the model distinguish sick patients to healthy patients.
 
 
 ```{r message=FALSE, warning=FALSE, fig.height=3, fig.cap="Desition Tree", fig.width=6}
-plot(dt_cost)
+#plot(dt_cost)
 ```
 
 # Random forest (RF) algorithm
@@ -1383,13 +1400,16 @@ rf_testing_pred <-
 rf_testing_pred_tbl<-confusionMatrix(rf_testing_pred$.pred_class, rf_testing_pred$Class,dnn = c('predicted', 'actual'))
 ```
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
-print(rf_testing_pred_tbl[["table"]])
+#print(rf_testing_pred_tbl[["table"]])
 best_rf_stats <- data.frame(
                           Accuracy=rf_testing_pred_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(rf_testing_pred_tbl[["byClass"]][["Sensitivity"]],3), 
                            Precision=round(rf_testing_pred_tbl[["byClass"]][["Precision"]],3), 
                            Specificity=round(rf_testing_pred_tbl[["byClass"]][["Specificity"]],3)) 
 rownames(best_rf_stats)<-"RF default"
+
+knitr::kable(best_rf_stats , caption = ' best RF results')%>%
+  kable_paper("striped", full_width = F)
 #rf_testing_pred_roc_auc<- rf_testing_pred %>%  roc_auc(truth = Class, .pred_glaucoma) # ROC calculation
 #rf_testing_pred_acc<-rf_testing_pred  %>%  accuracy(truth = Class, .pred_class) # Accuracy calculation
 #print(paste0("the roc_auc estimate is: ", rf_testing_pred_roc_auc$.estimate))
@@ -1433,6 +1453,7 @@ best_rf_stats["10-fold cross-validation",] <- data.frame(
                            Specificity=round(rf_testing_pred_tbl2[["byClass"]][["Specificity"]],3)) 
 #print(paste0("the roc_auc estimate is: ", rf_testing_pred_roc_auc$.estimate))
 #print(paste0("the accuracy estimate is: ", rf_testing_pred_acc$.estimate))
+
 ```
 ```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
 print.data.frame(best_rf_stats)
@@ -1503,34 +1524,38 @@ print.data.frame(best_tree)
 
 So we have our best tree parameters. Lets take a better look:
 
-```{r  Exploring results final_tree, message=FALSE, warning=FALSE, results='hide'}
+```{r  Exploring results final_tree, message=FALSE, warning=FALSE,results='hide'}
 final_tree <-   final_wf %>%  fit(data = data_train) 
 print(final_tree)
 ```
 
 Another way to look at how the model uses the different features is using the vip package:
 
-```{r message=FALSE, warning=FALSE,results='hide', fig.show='hide'}
+```{r message=FALSE, warning=FALSE}
 final_tree %>%   extract_fit_parsnip() %>%   vip()
 ```
 
 ```{r message=FALSE, warning=FALSE}
 best_rf_stats$General <- round(calc_score(best_rf_stats),3)
+knitr::kable(best_rf_stats , caption = ' best RF stat results')%>%
+  kable_paper("striped", full_width = F) 
 ```
 ## Random forest conclusions and Finalizing the model
 
 
 Finally, let’s return to our test data and estimate the model performance we expect to see with new data. We can use the function last_fit() with our finalized model; this function fits the finalized model on the full training data set and evaluates the finalized model on the testing data.
 
-```{r Random forest conclusions, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
+```{r Random forest conclusions, message=FALSE, warning=FALSE}
 final_fit <- final_wf %>%  last_fit(patient_split) # Set workflow
 final_fit %>%  collect_metrics()# train
 final_fit %>%  collect_predictions() %>%  # collect metrics
   roc_curve(Class, .pred_glaucoma) %>%   autoplot()
-args(decision_tree)
-best_stats["RF",]<-cbind(best_rf_stats["RF default",], notes="RF default")
+#args(decision_tree)
+
 ```
-We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions.
+We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions: more than 75% of chances that the model distinguish sick patients to healthy patients.
+
+Random forest classify patients with more sensitivity than decision tree. This result is not suprising by the fact that random forest build many decision trees and select the best.
 
 # conclusions
 ```{r svm conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE}
