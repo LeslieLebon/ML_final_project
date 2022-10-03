@@ -1508,6 +1508,8 @@ We can see that our tree with a depth of 1, is the worst model according to both
 #print.data.frame(tree_res %>%  show_best("roc_auc")) # best tree
 knitr::kable(tree_res %>%  show_best("roc_auc"), caption = 'best tree')
 
+
+
 ```
 
 And finally, let's finalize the workflow with the best tree. 
@@ -1539,6 +1541,7 @@ final_tree %>%   extract_fit_parsnip() %>%   vip()
 best_rf_stats$General <- round(calc_score(best_rf_stats),3)
 knitr::kable(best_rf_stats , caption = ' best RF stat results')%>%
   kable_paper("striped", full_width = F) 
+
 ```
 ## Random forest conclusions and Finalizing the model
 
@@ -1560,6 +1563,7 @@ Random forest classify patients with more sensitivity than decision tree. This r
 # conclusions
 ```{r svm conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE}
 print.data.frame(best_stats)
+
 roc_test<-roc.test(pROC_svm_linear,pROC_svm_rbf)
 roc_test$estimate
 g2 <- ggroc(list(vanilladot=pROC_svm_linear, rbf=pROC_svm_rbf))+labs(title = "linear Vs. RBF")
