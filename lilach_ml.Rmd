@@ -50,7 +50,9 @@ library(C50) # DT
 library(modeldata)  # for the cells data
 library(vip)        # for variable importance plots
 library(ranger)
-
+library(ISLR)
+library(rpart)
+library(rpart.plot)
 ```
 
 
@@ -1312,6 +1314,7 @@ best_dt_stats["fine tuning with cost matrix",] <- data.frame(
 best_dt_stats$General <- calc_score(best_dt_stats)
 plot(dt_cost)
 
+
 ```
  
  This last version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model does much better in this regard. This trade resulted in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
@@ -1326,6 +1329,8 @@ knitr::kable(best_dt_stats , caption = ' best  DT stat ')%>%
 ```
 
 Our best model was the first, default model, with sensitivity of 84% (like with the cost-matrix) and precision of 91.3% and specificity of 92%.
+
+ 
 
 #### confusion matrix of the best DT model:
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
@@ -1593,3 +1598,11 @@ pROC_RF_final <- roc(c(test_set_z$Class), c(as.numeric(final_fit_pred$.pred_clas
 
 ggroc(list(SVM=pROC_svm_rbf, KNN=pROC_knn_3_z_new, DF=pROC_DT, RF=pROC_RF_final))+labs(title = "all algotithms")
 ```
+
+To summarize, our dataset is composed of 196 patients:98 sicks and 98 healthy.
+There are 63 features corresponding to the blood vessels eye pressure which help to determine if a patient has glaucoma. Each feature has its degree of importance, some of them seem to be more important than others. Keeping only important features (based on threshold determine by varImp), we did not observe any improvement in the patient classification. Moreover, we observed that some features highly correlate. Unfortunately, after deleting highly correlated features, we did not observe a major improvement in the patient classification.Thereby, we decided to keep the 63 features. 
+Before to test the different algorithms, we defined a weight for each variable allowing to evaluate the predictions: 3 for sensitivity, 2 for precision,  2 for accuracy and 1 for specificity, in order to classify results of the algorithm used. 
+
+The last figure showing the sensitivity and the specificity help us to compare the different algorithm choosen in this project. We observe that KNN algorithm gives the best sensitivity score (0.92), so the highest rate of true positive cases, which is the most important variable.About the precision, (true predicted glaucoma/predicted glaucoma), type I error, KNN algorithm gives the better score (0.92) followed by DT algorithm (0.913). About the accurency (true prediction/ all prediction), proportion of correct prediction, KNN gives the best score again (0.92) follwed by DT algorithm (0.88). Fianlly, about the specificity, (true predicted healthy/healthy), KNN and DT algorithm give the same score (0.92). Combining all together, KNN algorithm gives the best predictions followed by decision tree algorithm. SVM and random forest give similar score of predictions, lower than KNN and decision tree.
+
+ 
