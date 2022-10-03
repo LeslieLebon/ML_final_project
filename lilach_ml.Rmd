@@ -1,12 +1,10 @@
 ---
 title: "Final Project"
 author: "Lilach Herzog & Leslie Cohen"
-date: "29 9 2022"
+date: "3/10/2022"
 output:
   pdf_document:
     fig_caption: yes
-    toc: yes
-    toc_depth: 1
   word_document:
     toc: yes
     toc_depth: 2
@@ -285,7 +283,7 @@ test_set_z_new<-test_set_z[,colnames(data_no_corr)]
 ## algorithms evaluation
 In order to decide which algorithm was best we calculated the accuracy, sensitivity, precision and specificity. We also wanted one general number that includes all the calculations, so we did:
 
-- Sensitivity (true predicted glaucoma/have glaucoma) is the percentage of true positives -predicted to have glaucoma- out of all the people that actually have glaucoma. In other words- it refers to the test's ability to correctly detect ill patients who do have the condition. Since we don't want to miss a sick person that then won't be treated ( type II error), it is more important that the sensitivity  will be high. We decided to give it a weight of 3.
+- Sensitivity (true predicted glaucoma/have glaucoma) is the percentage of true positives -predicted to have glaucoma- out of all the people that actually have glaucoma. In other words- it refers to the test's ability to correctly detect ill patients who do have the condition. Since we don't want to miss a sick person that then won't be treated ( type II error), it is more important that the sensitivity  will be high. We decided to give it a weight of 4.
 
 - Precision (true predicted glaucoma/predicted glaucoma), or positive predictive value (PPV) is the percentage of true positives out of all the predicted positives. We don't want to scare a person that isn't sick for nothing (type I error), but of course (in case of glaucoma) that error is preferable to type II error.  We decided to give it a weight of 2.
 
@@ -323,7 +321,6 @@ We ran the algorithm on the datatset with the selected features
 Class_classifier_svm_new <-  ksvm(x=Class ~., data=data_train_new)
 Class_predictions_svm_new <- predict(Class_classifier_svm_new, data_test_new)
 svm_linear_norm_new <- confusionMatrix(Class_predictions_svm_new,data_test[,63], dnn = c('actual', 'predicted'))
-pROC_svm_new <- roc(c(data_test$Class), c(as.numeric(Class_predictions_svm_new)))
 svm_stats_default_new <- data.frame( 
                            Accuracy=svm_linear_norm_new[["overall"]][["Accuracy"]],
                            Sensitivity=round(svm_linear_norm_new[["byClass"]] [["Sensitivity"]],3), 
@@ -368,7 +365,6 @@ Now we wanted to see how well our classifier performed according to the differen
 
 ```{r svm_linear_stats, message=FALSE, warning=FALSE, echo=FALSE}
 df_linear<-data.frame(predictions=c(as.numeric(Class_predictions_linear)),labels = c(data_test$Class))
-pROC_svm_linear <- roc(df_linear$labels,df_linear$predictions)
 
 svm_linear_stats <- data.frame(  
                            Accuracy=svm_linear[["overall"]][["Accuracy"]],
@@ -416,7 +412,6 @@ svm_rbf <- confusionMatrix(Class_predictions_rbf,data_test[,63])
 
 # calculate performance
 df_rbf<-data.frame(predictions=c(as.numeric(Class_predictions_rbf)),labels = c(data_test$Class))
-pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions)
 svm_rbf_stats <- data.frame(  
                            Accuracy=svm_rbf[["overall"]][["Accuracy"]],
                            #AUC=pROC_svm_rbf[["auc"]],
@@ -736,7 +731,6 @@ print(paste(paste0("the whole z-scaled dataset's score (linear) is ", svm_linear
             paste0("; the abridged dataset's score = ", svm_linear_z_new_stats$General)))
 ```
 
-As before we ran the same kernels, but show here the process of the linear kernel only (the rest can be seen in our code).
 ```{r svm scaled data, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 svm_z_stats<-svm_linear_z_stats
 rownames(svm_z_stats)<-c("linear")
@@ -860,11 +854,14 @@ Using the normalized data, all  25 of the healthy were predicted as healthy, whe
 On the other hand, out of 25 people with glaucoma, when we used the default scaling with the RBF kernel it predicted correctly  21  with glaucoma (so 4 sick people were told they are healthy), as opposed to only 18  that the normalized data yielded, (so 7 sick people think they are healthy..).
 The 'General' score the way we decided to calculate it gave the best result to the RBF kernel on the scaled/default data (85.7% as opposed to 84.4%), even though there was a 100% success rate in both precision and specificity, but if we calculate it differently (for instance less weight on sensitivity) we might decide that scaling might do a better job with normalizing. In this case, we decided it's preferable that 3 people think they are sick and later on learn they are healthy if 3 less people are diagnosed correctly when they are sick, so we will choose the default as the best SVM result.
 
-We saved the SVM results of our normalized data with the RBF kernel to compare with the rest of the algorithms.
-```{r svm save best, message=FALSE, warning=FALSE}
+#### confusion matrix of the best SVM model:
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+grid.table(svm_rbf[["table"]])
 best_stats<-cbind(svm_best_stats["RBF",], notes="RBF")
 rownames(best_stats)<-"SVM"
 ```
+
+We saved the SVM results of our normalized data with the RBF kernel to compare with the rest of the algorithms.
 
 # K-Nearest Neighbors (KNN) algorithm
 
@@ -1105,7 +1102,10 @@ print(paste(paste0("k=3: the whole z-scaled dataset's score = ",knn_seperate_cv_
 ```
 
 ```{r message=FALSE, warning=FALSE}
-best_knn_stats["manually, scaled, selected",] = knn_seperate_cv_stats_z_new
+
+best_knn_stats[paste(
+  "manually", knn_seperate_cv_stats_z_new$k,", scaled, selected"),] <-
+  knn_seperate_cv_stats_z_new
 ```
 
 We saw that the results were much better using the z-score scaling. The best result was from k=3, with accuracy, sensitivity, precision and and specificity all are 92% (out of 25 sick 23 were predicted sick, out of 25 healthy 23 were predicted healthy) 
@@ -1164,33 +1164,6 @@ Again we got better results out of the smaller dataset (accuracy from 84%0>86%, 
 
 ## knn conclusions
 
-We did not see any difference whether we used the crossed validation or the repeated cross validation.
-We got worse results when we used the smaller dataset on the normalized data, but much better on the scaled data.
-Interestingly, the best results were with the manually chosen K's (when K=3). using CV and repeated CV the best resukt was with K=17. We had manually chosen K=15 and K=21, and both were not as good as K=3.
-Using KNN algorithm with K=3 on scaled data with only the selected featured gave us the best result yet.
-```{r message=FALSE,warning=FALSE, echo=FALSE, fig.show='hide'}
-#print.data.frame(best_knn_stats %>% select(Accuracy,Sensitivity, Precision, Specificity,General))
-
-
-
-t_knn_9_z <- tableGrob(knn_table_9_z)
-gtitle_knn_9_z <- textGrob("manually chosen (k=9)")
-gtable_knn_9_z <- gtable_add_rows(t_knn_9_z, heights = grobHeight(gtitle_knn_9_z)+ unit(5,"mm"), pos = 0)
-gtable_knn_9_z <- gtable_add_grob(gtable_knn_9_z, gtitle_knn_9_z, 1, 1, 1, ncol(gtable_knn_9_z))
-
-t_cv_z <- tableGrob(knn_z_table[["t"]])
-title_cv_z <- textGrob("cross validation (z-score scaled)")
-table_cv_z <- gtable_add_rows( t_cv_z,heights = grobHeight(title_cv_z) + unit(5,"mm"), pos = 0)
-table_cv_z <- gtable_add_grob( table_cv_z, title_cv_z, 1, 1, 1, ncol(table_cv_z))
-
-#confusion matrices
-#grid.arrange(gtable_knn_9_z,table_cv_z,ncol=2)
-#grid.newpage()
-#grid.draw(table_cv_z)
-
-#best_stats["KNN",]<-cbind(best_knn_stats["linear norm",], notes="linear norm")
-```
-
 ```{r message=FALSE,warning=FALSE, echo=FALSE, out.width='100%'}
 best_knn_stats[,"method"]<-rownames(best_knn_stats)
 best_knn_stats_melt<-best_knn_stats %>% 
@@ -1205,6 +1178,23 @@ knitr::kable(best_knn_stats %>% select(Accuracy,Sensitivity, Precision, Specific
   column_spec(6, bold = T) %>%
   row_spec(4, bold = T, color = "black", background = "yellow")
 #grid.arrange( plotted_knn, tableGrob(best_knn_stats[,-7][,-5]),nrow = 2, ncol = 1)
+
+best_knn<-best_knn_stats[best_knn_stats$General==max(best_knn_stats$General),]
+best_stats["KNN",]<-cbind(best_knn%>% select(Accuracy,Sensitivity, Precision, Specificity,General), notes=paste(rownames(best_knn)))
+```
+
+We did not see any difference whether we used the crossed validation or the repeated cross validation.
+We got worse results when we used the smaller dataset on the normalized data, but much better on the scaled data.
+Interestingly, the best results were with the manually chosen K's (when K=3). 
+using CV and repeated CV the best resukt was with K=17. We had manually chosen K=15 and K=21, and both were not as good as K=3.
+Using KNN algorithm with K=3 on scaled data with only the selected featured gave us the best result yet.
+
+
+
+
+#### confusion matrix of the best KNN model:
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+grid.table(knn_table_3_z_new)
 ```
 
 # Decision Tree (DT) algorithm
@@ -1229,23 +1219,21 @@ The numbers in parentheses indicate the number of examples meeting the criteria 
 that decision, and the number incorrectly classified by the decision. 
 For instance, on the first line, 56/4 indicates that of the 56 examples reaching the decision, 4 were incorrectly classified as not likely to default. In other words, 4 applicants actually defaulted, in spite of the model's prediction.
 
-As we now know, it is very important to evaluate our model performance:
 
 ```{r message=FALSE, warning=FALSE,results='hide'}
 DT_pred <- predict(DT_model, data_test)
 DT_pred_tbl<- confusionMatrix(DT_pred,data_test[,63])
-#confusion table
-print(DT_pred_tbl[["table"]])
+```
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+#print.table(DT_pred_tbl[["table"]])
 best_dt_stats <- data.frame( 
                           Accuracy=DT_pred_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(DT_pred_tbl[["byClass"]][["Sensitivity"]],3), 
                            Precision=round(DT_pred_tbl[["byClass"]][["Precision"]],3), 
                            Specificity=round(DT_pred_tbl[["byClass"]][["Specificity"]],3)) 
 rownames(best_dt_stats)<-c("DT default")
-```
-```{r message=FALSE, warning=FALSE,echo=FALSE}
-knitr::kable(best_dt_stats , caption = ' best DT results')%>%
-  kable_paper("striped", full_width = F)
+
+print.data.frame(best_dt_stats)
 ```
 
 The performance here is somewhat worse than its performance on the
@@ -1263,93 +1251,95 @@ simply need to add an additional trials parameter indicating the number of
 separate decision trees to use in the boosted team. The trials parameter sets an
 upper limit; the algorithm will stop adding trees if it recognizes that additional 
 trials do not seem to be improving the accuracy. 
-We'll start with 10 trials, a number that has become the de facto standard, as research 
+We started with 10 trials, a number that has become the de facto standard, as research 
 suggests that this reduces error rates on test data by about 25 percent:
 
 ```{r message=FALSE, warning=FALSE, results='hide'}
 DT_boost10 <- C5.0(data_train[-63], data_train$Class , trials = 10)
 summary(DT_boost10)
 ```
-
-The classifier got an error rate of
-0% percent. This is quite an improvement over the previous training error rate
-before adding boosting! However, it remains to be seen whether we see
-a similar improvement on the test data. Let's take a look:
-
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, echo=FALSE}
 DT_boost_pred10 <- predict(DT_boost10, data_test)
 DT_boost_pred10_tbl<-confusionMatrix(DT_boost_pred10, data_test[,63])
-print(DT_boost_pred10_tbl[["table"]])
+#print.table(DT_boost_pred10_tbl[["table"]])
 best_dt_stats["boosting with 10 trials",] <- data.frame(
                           Accuracy=DT_boost_pred10_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(DT_boost_pred10_tbl[["byClass"]][["Sensitivity"]],3), 
                            Precision=round(DT_boost_pred10_tbl[["byClass"]][["Precision"]],3), 
                            Specificity=round(DT_boost_pred10_tbl[["byClass"]][["Specificity"]],3)) 
 ```
-```{r message=FALSE, warning=FALSE,echo=FALSE}
-knitr::kable(best_dt_stats , caption = ' best DT after boost results')%>%
-  kable_paper("striped", full_width = F) 
-```
-The model is still not doing well at predicting class of patients, which may be a result of our relatively small training dataset, or it may just be a very difficult problem to solve.
 
-Next, lets proceed to fine-tune our algorithm, using a cost matrix. 
+```{r message=FALSE, warning=FALSE,echo=FALSE}
+print.data.frame(best_dt_stats["boosting with 10 trials",])
+```
+The classifier got an error rate of
+0% percent. This is quite an improvement over the previous training error rate
+before adding boosting! However, the model is still not doing well at predicting class of patients, which may be a result of our relatively small training dataset, or it may just be a very difficult problem to solve.
+
+### fine-tune with cost-matrix
+
+Next, we proceeded to fine-tune our algorithm, using a cost matrix. 
 The C5.0 algorithm allows us to assign a penalty to different types of errors, in order to discourage a tree from making more costly mistakes. The penalties are designated in a cost matrix, which specifies how much costlier each error is, relative to any other prediction.
 
-First, we'll create a default 2x2 matrix, to later be filled with our cost values:
-
-```{r message=FALSE, warning=FALSE}
-matrix_dimensions <- list(c("normal", "glaucoma"), c("normal", "glaucoma"))
-names(matrix_dimensions) <- c("predicted", "actual")
-```
-
-If we consider that the most important is to predict a sick patient as sick, much more that a normal patient as normal,
+We created a default 2x2 matrix, and filled with our cost values. If we consider that the most important is to predict a sick patient as sick, much more that a normal patient as normal,
 our penalty values could then be defined as:
 
-```{r message=FALSE, warning=FALSE,echo=FALSE}
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+matrix_dimensions <- list(c("normal", "glaucoma"), c("normal", "glaucoma"))
+names(matrix_dimensions) <- c("predicted", "actual")
+
 error_cost <- matrix(c(0, 6,20, 0), nrow = 2, dimnames = matrix_dimensions)
-#print(error_cost)
-knitr::kable(error_cost , caption = ' error cost')%>%
-  kable_paper("striped", full_width = F) 
+print.table(error_cost)
 ```
 
-Now lets train again and see if the cost matrix made any difference:
+We trained again to see if the cost matrix made any difference.
 
-```{r message=FALSE, warning=FALSE,echo=FALSE}
+```{r message=FALSE, warning=FALSE}
 dt_cost <- C5.0(data_train[-63], data_train$Class , costs = error_cost)
+```
+```{r message=FALSE, warning=FALSE,echo=FALSE, results='hide'}
 dt_cost_pred <- predict(dt_cost, data_test) # predict on test data
 dt_cost_pred_tbl<-confusionMatrix(dt_cost_pred, data_test[,63],dnn = c('predicted', 'actual'))
-#print(dt_cost_pred_tbl[["table"]])
-knitr::kable(dt_cost_pred_tbl[["table"]] , caption = ' confusion matrix ')%>%
-  kable_paper("striped", full_width = F) 
-```
-#DT conclusion
 
-```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
+```
+```{r message=FALSE, warning=FALSE, fig.height=3, fig.cap="Desition Tree", fig.width=8, echo=FALSE}
+#print.table(dt_cost_pred_tbl[["table"]])
 best_dt_stats["fine tuning with cost matrix",] <- data.frame(
                           Accuracy=dt_cost_pred_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(dt_cost_pred_tbl[["byClass"]][["Sensitivity"]],3), 
                            Precision=round(dt_cost_pred_tbl[["byClass"]][["Precision"]],3), 
                            Specificity=round(dt_cost_pred_tbl[["byClass"]][["Specificity"]],3)) 
-```
-```{r message=FALSE, warning=FALSE}
 best_dt_stats$General <- calc_score(best_dt_stats)
-#print.data.frame(best_dt_stats)
-#best_stats["DT",]<-cbind(best_dt_stats["default",], notes="default")
+plot(dt_cost)
+
 ```
+ 
+ This last version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model does much better in this regard. This trade resulted in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
+  
+## DT conclusions
+
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
 knitr::kable(best_dt_stats , caption = ' best  DT stat ')%>%
-  kable_paper("striped", full_width = F) 
-```  
-  
-Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
-With the boosted model, we have 72% of chances that the model distinguish sick patients to healthy patients.
- Regarding the different results obtained the default DT presents best predictions than boosted and with cost matrix with a general score of 87.4% compared to boosted with 83.3% or with cost matrix : 75%.
-
-```{r message=FALSE, warning=FALSE, fig.height=3, fig.cap="Desition Tree", fig.width=6,echo=FALSE}
-#plot(dt_cost)
+  kable_paper("striped", full_width = F)  %>%
+  column_spec(6, bold = T) %>%
+  row_spec(1, bold = T, color = "black", background = "yellow")
 ```
 
+Our best model was the first, default model, with sensitivity of 84% (like with the cost-matrix) and precision of 91.3% and specificity of 92%.
+
+#### confusion matrix of the best DT model:
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+grid.table(DT_pred_tbl[["table"]])
+#knitr::kable(DT_pred_tbl[["table"]] , caption = 'confusion matrix of the best DT model') %>% kable_paper("striped", full_width = F) 
+
+best_stats["DT",]<-cbind(best_dt_stats[1,], notes="default")
+``` 
+
+
+
+
 # Random forest (RF) algorithm
+
 Random forest is a Supervised Machine Learning Algorithm. This algorithm is used in Classification and Regression problems. It builds decision trees on different samples and takes their majority vote for classification and average in case of regression.
 The Random Forest Algorithm can handle the data set containing continuous variables as in the case of regression and categorical variables as in the case of classification.(cf: https://www.analyticsvidhya.com/blog/2021/06/understanding-random-forest/)
 
@@ -1388,20 +1378,32 @@ rf_training_pred <- predict(rf_fit, data_train) %>%
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 rf_training_pred_roc_auc<-rf_training_pred %>%   roc_auc(truth = Class, .pred_glaucoma)# ROC calculation
 rf_training_pred_acc<- rf_training_pred %>%  accuracy(truth = Class, .pred_class)# Accuracy calculation
-print(paste0("the roc_auc estimate is: ", rf_training_pred_roc_auc$.estimate))
-print(paste0("the accuracy estimate is: ", rf_training_pred_acc$.estimate))
+print(paste("training: the roc_auc estimate = ", round( rf_training_pred_roc_auc$.estimate, 3),
+      ", the accuracy estimate = ",round( rf_training_pred_acc$.estimate,3)))
 ```
 
-As we can see, these are very good results. Almost too good, so we would like to see how the model performs on the test data:
+As we can see, these are very good results. Almost too good, but it is on the set we trained on.
+There are several reasons why training set statistics like the ones shown in this section can be unrealistically optimistic:
+
+- Overfitting - Models like random forests, neural networks, and other black-box methods can essentially memorize the training set. Re-predicting that same set should always result in nearly perfect results.
+
+- The training set does not have the capacity to be a good arbiter of performance. It is not an independent piece of information; predicting the training set can only reflect what the model already knows.
+
+so we checked how the model performs on the test data:
 
 ```{r RF rf_testing_pred, message=FALSE, warning=FALSE, results='hide'}
 rf_testing_pred <- 
   predict(rf_fit, data_test) %>% 
   bind_cols(predict(rf_fit, data_test, type = "prob")) %>% 
   bind_cols(data_test %>% select(Class))
-rf_testing_pred_tbl<-confusionMatrix(rf_testing_pred$.pred_class, rf_testing_pred$Class,dnn = c('predicted', 'actual'))
 ```
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
+rf_testing_pred_tbl<-confusionMatrix(rf_testing_pred$.pred_class, rf_testing_pred$Class,dnn = c('predicted', 'actual'))
+rf_testing_pred_roc<-rf_testing_pred %>%   roc_auc(truth = Class, .pred_glaucoma)# ROC calculation
+rf_testing_pred_acc<- rf_testing_pred %>%  accuracy(truth = Class, .pred_class)# Accuracy calculation
+print(paste("testing: the roc_auc estimate = ", round( rf_testing_pred_roc$.estimate, 3),
+      ", the accuracy estimate = ",round( rf_testing_pred_acc$.estimate,3)))
+
 #print(rf_testing_pred_tbl[["table"]])
 best_rf_stats <- data.frame(
                           Accuracy=rf_testing_pred_tbl[["overall"]][["Accuracy"]],
@@ -1410,19 +1412,10 @@ best_rf_stats <- data.frame(
                            Specificity=round(rf_testing_pred_tbl[["byClass"]][["Specificity"]],3)) 
 rownames(best_rf_stats)<-"RF default"
 
-knitr::kable(best_rf_stats , caption = ' best RF results')%>%
-  kable_paper("striped", full_width = F)
-#rf_testing_pred_roc_auc<- rf_testing_pred %>%  roc_auc(truth = Class, .pred_glaucoma) # ROC calculation
-#rf_testing_pred_acc<-rf_testing_pred  %>%  accuracy(truth = Class, .pred_class) # Accuracy calculation
-#print(paste0("the roc_auc estimate is: ", rf_testing_pred_roc_auc$.estimate))
-#print(paste0("the accuracy estimate is: ", rf_testing_pred_acc$.estimate))
+#print.data.frame(best_rf_stats)
 ```
-These validation results are lower than the ones we got on the training data.
-There are several reasons why training set statistics like the ones shown in this section can be unrealistically optimistic:
+These validation results are lower than the ones we got on the training data, as expected, but are still pretty good.
 
-- Overfitting - Models like random forests, neural networks, and other black-box methods can essentially memorize the training set. Re-predicting that same set should always result in nearly perfect results.
-
-- The training set does not have the capacity to be a good arbiter of performance. It is not an independent piece of information; predicting the training set can only reflect what the model already knows.
 
 ## Resampling
 
@@ -1436,29 +1429,33 @@ rf_wf <-   workflow() %>%  add_model(rf_mod) %>%  add_formula(Class ~ .)
 rf_fit_rs <-   rf_wf %>%   fit_resamples(folds)# add folds to workflow and train model
 ```
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
-print.data.frame(collect_metrics(rf_fit_rs))
+rf_fit_rs_tbl_stats<-collect_metrics(rf_fit_rs)
+print(paste("the",rf_fit_rs_tbl_stats[1,1],"estimate =", round(rf_fit_rs_tbl_stats[1,]$mean,3), 
+             ", the ",rf_fit_rs_tbl_stats[2,1],"estimate = ",round(rf_fit_rs_tbl_stats[2,]$mean,3)))
+#print.data.frame(collect_metrics(rf_fit_rs)%>% select(.metric, mean, std_err))
 #knitr::kable(collect_metrics(rf_fit_rs), caption = 'collect_metrics(rf_fit_rs)')
+```
+```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
+
+rf_wf_fit <- rf_wf %>%  last_fit(patient_split) # Set workflow
+rf_wf_fit_pred<- rf_wf_fit %>%  collect_predictions()  # collect metrics
+rf_wf_fit_tbl<-confusionMatrix(rf_wf_fit_pred$.pred_class,
+                                    rf_wf_fit_pred$Class,
+                                    dnn = c('predicted', 'actual'))
+
 
 ```
 
 We see these results are lower and look more realistic.
-Now, looking at the test set for results, we expect and see much more similar results to the above ROC and accuracy:
 
-```{r rf_testing_pred stats, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
-#rf_testing_pred_roc_auc<- rf_testing_pred %>%    roc_auc(truth = Class, .pred_glaucoma)
-#rf_testing_pred_acc<-rf_testing_pred %>% accuracy(truth = Class, .pred_class)
-rf_testing_pred_tbl2<-confusionMatrix(rf_testing_pred$.pred_class, rf_testing_pred$Class,dnn = c('predicted', 'actual'))
-best_rf_stats["10-fold cross-validation",] <- data.frame(
-                          Accuracy=rf_testing_pred_tbl2[["overall"]][["Accuracy"]],
-                           Sensitivity=round(rf_testing_pred_tbl2[["byClass"]][["Sensitivity"]],3), 
-                           Precision=round(rf_testing_pred_tbl2[["byClass"]][["Precision"]],3), 
-                           Specificity=round(rf_testing_pred_tbl2[["byClass"]][["Specificity"]],3)) 
-#print(paste0("the roc_auc estimate is: ", rf_testing_pred_roc_auc$.estimate))
-#print(paste0("the accuracy estimate is: ", rf_testing_pred_acc$.estimate))
-
-```
-```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
-print.data.frame(best_rf_stats)
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+best_rf_stats["10-fold CV",] <- data.frame(
+                          Accuracy=rf_wf_fit_tbl[["overall"]][["Accuracy"]],
+                           Sensitivity=round(rf_wf_fit_tbl[["byClass"]][["Sensitivity"]],3), 
+                           Precision=round(rf_wf_fit_tbl[["byClass"]][["Precision"]],3), 
+                           Specificity=round(rf_wf_fit_tbl[["byClass"]][["Specificity"]],3))
+best_rf_stats["10-fold CV",]$General<-calc_score(best_rf_stats["10-fold CV",])
+#print.data.frame(best_rf_stats["10-fold CV",])
 ```
 
 
@@ -1490,6 +1487,7 @@ tree_wf <- workflow() %>%  add_model(tune_spec) %>%  add_formula(Class ~ .)
 tree_res <- tree_wf %>%  tune_grid(resamples = glaucoma_folds, grid = tree_grid)
 tree_res %>% collect_metrics()
 ```
+
 Its easier to see how the models did with a graph:
 
 ```{r RF plot preformance, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
@@ -1506,11 +1504,8 @@ tree_res %>%
 
 We can see that our tree with a depth of 1, is the worst model according to both metrics and across all candidate values of cost_complexity. Our deepest tree, with a depth of 15, did better.  The show_best() function shows us the top 5 candidate models by default:
 
-```{r message=FALSE, warning=FALSE, echo=FALSE}
-#print.data.frame(tree_res %>%  show_best("roc_auc")) # best tree
-knitr::kable(tree_res %>%  show_best("roc_auc"), caption = 'best tree')
-
-
+```{r message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+print.data.frame(tree_res %>%  show_best("roc_auc"))
 
 ```
 
@@ -1528,78 +1523,72 @@ print.data.frame(best_tree)
 
 So we have our best tree parameters. Lets take a better look:
 
-```{r  Exploring results final_tree, message=FALSE, warning=FALSE, echo=FALSE}
+```{r  Exploring results final_tree, message=FALSE, warning=FALSE,results='hide'}
 final_tree <-   final_wf %>%  fit(data = data_train) 
 print(final_tree)
 ```
 
 Another way to look at how the model uses the different features is using the vip package:
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, fig.height=3}
 final_tree %>%   extract_fit_parsnip() %>%   vip()
 ```
 
-```{r message=FALSE, warning=FALSE,echo=FALSE}
-best_rf_stats$General <- round(calc_score(best_rf_stats),3)
-knitr::kable(best_rf_stats , caption = ' best RF stat results')%>%
-  kable_paper("striped", full_width = F) 
-
-```
 ## Random forest conclusions and Finalizing the model
 
 
 Finally, let’s return to our test data and estimate the model performance we expect to see with new data. We can use the function last_fit() with our finalized model; this function fits the finalized model on the full training data set and evaluates the finalized model on the testing data.
 
-```{r Random forest conclusions, message=FALSE, warning=FALSE}
+```{r Random forest conclusions, message=FALSE, warning=FALSE,results='hide'}
 final_fit <- final_wf %>%  last_fit(patient_split) # Set workflow
 final_fit %>%  collect_metrics()# train
-final_fit %>%  collect_predictions() %>%  # collect metrics
-  roc_curve(Class, .pred_glaucoma) %>%   autoplot()
-#args(decision_tree)
+final_fit_tbl_stats<-collect_metrics(final_fit)
+```
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+print(paste("the",final_fit_tbl_stats[1,]$.metric,"estimate =", round(final_fit_tbl_stats[1,]$.estimate,3), 
+             ", the ",final_fit_tbl_stats[2,]$.metric,"estimate = ",round(final_fit_tbl_stats[2,]$.estimate,3)))
+final_fit_pred<- final_fit %>%  collect_predictions()  # collect metrics
+final_fit_pred_tbl<-confusionMatrix(final_fit_pred$.pred_class, final_fit_pred$Class,dnn = c('predicted', 'actual'))
+best_rf_stats["final_fit",] <- data.frame(
+                          Accuracy=final_fit_pred_tbl[["overall"]][["Accuracy"]],
+                           Sensitivity=round(final_fit_pred_tbl[["byClass"]][["Sensitivity"]],3), 
+                           Precision=round(final_fit_pred_tbl[["byClass"]][["Precision"]],3), 
+                           Specificity=round(final_fit_pred_tbl[["byClass"]][["Specificity"]],3)) 
+best_rf_stats$General <-calc_score(best_rf_stats)
+knitr::kable(best_rf_stats , caption = ' best RF stat results')%>%
+  kable_paper("striped", full_width = F)  %>%
+  column_spec(6, bold = T) %>%
+  row_spec(3, bold = T, color = "black", background = "yellow")
 
+```
+
+#### confusion matrix of the best RF model:
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+grid.table(final_fit_pred_tbl[["table"]])
+best_stats["RF",]<-best_rf_stats["final_fit",]
+best_stats["RF",]<-cbind(best_rf_stats["final_fit",], notes="final fit")
+
+```
+
+```{r echo=FALSE, fig.height=3}
+#final_fit_pred %>%  roc_curve(Class, .pred_glaucoma) %>%   autoplot()
 ```
 We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions: more than 75% of chances that the model distinguish sick patients to healthy patients.
 
 Random forest classify patients with more sensitivity than decision tree. This result is not suprising by the fact that random forest build many decision trees and select the best.
 
 # conclusions
-```{r svm conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE}
-print.data.frame(best_stats)
 
-roc_test<-roc.test(pROC_svm_linear,pROC_svm_rbf)
-roc_test$estimate
-g2 <- ggroc(list(vanilladot=pROC_svm_linear, rbf=pROC_svm_rbf))+labs(title = "linear Vs. RBF")
-# And change axis labels to FPR/FPR
-linear_roc <- ggroc(pROC_svm_linear, legacy.axes = TRUE)+ ggtitle("linear ROC curve") +geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
-rbf_roc <- ggroc(pROC_svm_rbf, legacy.axes = TRUE)+ ggtitle("rbf ROC curve") +geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
-#grid.arrange(linear_roc + xlab("FPR") + ylab("TPR"),g2+theme(legend.position = "top"),rbf_roc + xlab("FPR") + ylab("TPR"), ncol=3) 
+```{r general conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(best_stats , caption = ' best RF stat results')%>%
+  kable_paper("striped", full_width = F)  %>%
+  column_spec(6, bold = T) %>%
+  row_spec(1, bold = T, color = "black", background = "yellow")
+
+pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions)
+pROC_knn_3_z_new <- roc(c(test_set_z$Class), c(as.numeric(pred_knn_3_z_new)))
+pROC_DT <- roc(c(test_set_z$Class), c(as.numeric(DT_pred)))
+pROC_RF_final <- roc(c(test_set_z$Class), c(as.numeric(final_fit_pred$.pred_class)))
+
+ggroc(list(SVM=pROC_svm_rbf, KNN=pROC_knn_3_z_new, DF=pROC_DT, RF=pROC_DT))+labs(title = "all algotithms")
 ```
-
-
-To summarize, our dataset is composed of 196 patients:98 sicks and 98 healthy.
-There are 63 features corresponding to the blood vessels eye pressure which help to determine if a patient has glaucoma. Each feature has its degree of importance, some of them seem to be more important than others. Keeping only important features (based on threshold determine by varImp), we did not observe any improvement in the patient classification.Moreover, we observed that some features highly correlate. Unfortunately, after deleting highly correlated features, we did not observe a major improvement in the patient classification.Thereby, we decided to keep the 63 features. 
-Before to test the different algorithms, we defined a weight for each variable allowing to evaluate the predictions: 3 for sensitivity, 2 for precision,  2 for accuracy and 1 for specificity, in order to classify results of the algorithm used. 
-We obtained
-(table general)
-
-SVM conclusions
-
-We saw that out of all the kernels, the standard Gaussian Radial basis function (RBF) gave the best result. We also saw that using the smaller dataset that included only the selected features did not yeild any better results. One last thing to note is that normalization yielded the same accuracy (86%), worse sensitivity (72% as opposed to 84%), but managed to get to 100% in both precision and specificity. 
-
-knn conclusions
-
-We did not see any difference whether we used the crossed validation or the repeated cross validation.
-We got worse results when we used the smaller dataset on the normalized data, but much better on the scaled data.
-Interestingly, the best results were with the manually chosen K's (when K=3). using CV and repeated CV the best resukt was with K=17. We had manually chosen K=15 and K=21, and both were not as good as K=3.
-Using KNN algorithm with K=3 on scaled data with only the selected featured gave us the best result yet.
-
-dt conclusion
-
-Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
-With the boosted model, we have 72% of chances that the model distinguish sick patients to healthy patients.
- Regarding the different results obtained the default DT presents best predictions than boosted and with cost matrix with a general score of 87.4% compared to boosted with 83.3% or with cost matrix : 75%.
- 
- RF
- 
-Random forest classify patients with more sensitivity than decision tree. This result is not suprising by the fact that random forest build many decision trees and select the best.
-
