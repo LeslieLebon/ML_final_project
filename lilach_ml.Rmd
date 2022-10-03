@@ -1490,14 +1490,15 @@ tree_res %>% collect_metrics()
 
 Its easier to see how the models did with a graph:
 
-```{r RF plot preformance, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+```{r RF plot preformance, message=FALSE, warning=FALSE, echo=FALSE, results='hide', fig.height=2}
 tree_res %>%
   collect_metrics() %>%
   mutate(tree_depth = factor(tree_depth)) %>%
   ggplot(aes(cost_complexity, mean, color = tree_depth)) +
   geom_line(size = 1.5, alpha = 0.6) +
   geom_point(size = 2) +
-  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 1) +
+  theme(legend.position = "top")+
   scale_x_log10(labels = scales::label_number()) +
   scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
 ```
@@ -1530,7 +1531,7 @@ print(final_tree)
 
 Another way to look at how the model uses the different features is using the vip package:
 
-```{r message=FALSE, warning=FALSE, fig.height=3}
+```{r message=FALSE, warning=FALSE, fig.height=3, results='hide', fig.show='hide'}
 final_tree %>%   extract_fit_parsnip() %>%   vip()
 ```
 
@@ -1579,7 +1580,7 @@ Random forest classify patients with more sensitivity than decision tree. This r
 
 # conclusions
 
-```{r general conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE}
+```{r general conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE, fig.height=2}
 knitr::kable(best_stats , caption = ' best RF stat results')%>%
   kable_paper("striped", full_width = F)  %>%
   column_spec(6, bold = T) %>%
@@ -1590,5 +1591,5 @@ pROC_knn_3_z_new <- roc(c(test_set_z$Class), c(as.numeric(pred_knn_3_z_new)))
 pROC_DT <- roc(c(test_set_z$Class), c(as.numeric(DT_pred)))
 pROC_RF_final <- roc(c(test_set_z$Class), c(as.numeric(final_fit_pred$.pred_class)))
 
-ggroc(list(SVM=pROC_svm_rbf, KNN=pROC_knn_3_z_new, DF=pROC_DT, RF=pROC_DT))+labs(title = "all algotithms")
+ggroc(list(SVM=pROC_svm_rbf, KNN=pROC_knn_3_z_new, DF=pROC_DT, RF=pROC_RF_final))+labs(title = "all algotithms")
 ```
