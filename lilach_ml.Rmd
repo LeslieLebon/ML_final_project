@@ -1243,7 +1243,7 @@ best_dt_stats <- data.frame(
                            Specificity=round(DT_pred_tbl[["byClass"]][["Specificity"]],3)) 
 rownames(best_dt_stats)<-c("DT default")
 ```
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 knitr::kable(best_dt_stats , caption = ' best DT results')%>%
   kable_paper("striped", full_width = F)
 ```
@@ -1322,6 +1322,8 @@ dt_cost_pred_tbl<-confusionMatrix(dt_cost_pred, data_test[,63],dnn = c('predicte
 knitr::kable(dt_cost_pred_tbl[["table"]] , caption = ' confusion matrix ')%>%
   kable_paper("striped", full_width = F) 
 ```
+#DT conclusion
+
 ```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
 best_dt_stats["fine tuning with cost matrix",] <- data.frame(
                           Accuracy=dt_cost_pred_tbl[["overall"]][["Accuracy"]],
@@ -1340,10 +1342,10 @@ knitr::kable(best_dt_stats , caption = ' best  DT stat ')%>%
 ```  
   
 Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
-With the bossted model, we have 72% of chances that the model distinguish sick patients to healthy patients.
+With the boosted model, we have 72% of chances that the model distinguish sick patients to healthy patients.
+ Regarding the different results obtained the default DT presents best predictions than boosted and with cost matrix with a general score of 87.4% compared to boosted with 83.3% or with cost matrix : 75%.
 
-
-```{r message=FALSE, warning=FALSE, fig.height=3, fig.cap="Desition Tree", fig.width=6}
+```{r message=FALSE, warning=FALSE, fig.height=3, fig.cap="Desition Tree", fig.width=6,echo=FALSE}
 #plot(dt_cost)
 ```
 
@@ -1504,7 +1506,7 @@ tree_res %>%
 
 We can see that our tree with a depth of 1, is the worst model according to both metrics and across all candidate values of cost_complexity. Our deepest tree, with a depth of 15, did better.  The show_best() function shows us the top 5 candidate models by default:
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, echo=FALSE}
 #print.data.frame(tree_res %>%  show_best("roc_auc")) # best tree
 knitr::kable(tree_res %>%  show_best("roc_auc"), caption = 'best tree')
 
@@ -1526,7 +1528,7 @@ print.data.frame(best_tree)
 
 So we have our best tree parameters. Lets take a better look:
 
-```{r  Exploring results final_tree, message=FALSE, warning=FALSE,results='hide'}
+```{r  Exploring results final_tree, message=FALSE, warning=FALSE, echo=FALSE}
 final_tree <-   final_wf %>%  fit(data = data_train) 
 print(final_tree)
 ```
@@ -1537,7 +1539,7 @@ Another way to look at how the model uses the different features is using the vi
 final_tree %>%   extract_fit_parsnip() %>%   vip()
 ```
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE,echo=FALSE}
 best_rf_stats$General <- round(calc_score(best_rf_stats),3)
 knitr::kable(best_rf_stats , caption = ' best RF stat results')%>%
   kable_paper("striped", full_width = F) 
@@ -1572,3 +1574,32 @@ linear_roc <- ggroc(pROC_svm_linear, legacy.axes = TRUE)+ ggtitle("linear ROC cu
 rbf_roc <- ggroc(pROC_svm_rbf, legacy.axes = TRUE)+ ggtitle("rbf ROC curve") +geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
 #grid.arrange(linear_roc + xlab("FPR") + ylab("TPR"),g2+theme(legend.position = "top"),rbf_roc + xlab("FPR") + ylab("TPR"), ncol=3) 
 ```
+
+
+To summarize, our dataset is composed of 196 patients:98 sicks and 98 healthy.
+There are 63 features corresponding to the blood vessels eye pressure which help to determine if a patient has glaucoma. Each feature has its degree of importance, some of them seem to be more important than others. Keeping only important features (based on threshold determine by varImp), we did not observe any improvement in the patient classification.Moreover, we observed that some features highly correlate. Unfortunately, after deleting highly correlated features, we did not observe a major improvement in the patient classification.Thereby, we decided to keep the 63 features. 
+Before to test the different algorithms, we defined a weight for each variable allowing to evaluate the predictions: 3 for sensitivity, 2 for precision,  2 for accuracy and 1 for specificity, in order to classify results of the algorithm used. 
+We obtained
+(table general)
+
+SVM conclusions
+
+We saw that out of all the kernels, the standard Gaussian Radial basis function (RBF) gave the best result. We also saw that using the smaller dataset that included only the selected features did not yeild any better results. One last thing to note is that normalization yielded the same accuracy (86%), worse sensitivity (72% as opposed to 84%), but managed to get to 100% in both precision and specificity. 
+
+knn conclusions
+
+We did not see any difference whether we used the crossed validation or the repeated cross validation.
+We got worse results when we used the smaller dataset on the normalized data, but much better on the scaled data.
+Interestingly, the best results were with the manually chosen K's (when K=3). using CV and repeated CV the best resukt was with K=17. We had manually chosen K=15 and K=21, and both were not as good as K=3.
+Using KNN algorithm with K=3 on scaled data with only the selected featured gave us the best result yet.
+
+dt conclusion
+
+Compare these results to the boosted model; this version makes more mistakes overall, but the types of mistakes are very different. Where the previous models incorrectly classified a small number of class correctly, our weighted model has does much better in this regard. This trade resulting in a reduction of false negatives at the sick patient false positives may be acceptable if our cost estimates were accurate.
+With the boosted model, we have 72% of chances that the model distinguish sick patients to healthy patients.
+ Regarding the different results obtained the default DT presents best predictions than boosted and with cost matrix with a general score of 87.4% compared to boosted with 83.3% or with cost matrix : 75%.
+ 
+ RF
+ 
+Random forest classify patients with more sensitivity than decision tree. This result is not suprising by the fact that random forest build many decision trees and select the best.
+
