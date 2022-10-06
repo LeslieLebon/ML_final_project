@@ -1,7 +1,7 @@
 ---
 title: "Final Project"
 author: "Lilach Herzog & Leslie Cohen"
-date: "3/10/2022"
+date: "6/10/2022"
 output:
   pdf_document:
     fig_caption: yes
@@ -302,7 +302,7 @@ calc_score <- function(x) {return (round( ((2*x$Accuracy + 4*x$Sensitivity +
 
 # SVM (Support Vector Machines)
 
-Support vectors are the data points that define the position and the margin of the hyperplane. They are called “support” vectors, because these are the representative data points of the classes. If we move one of them, the position and/or the margin will change.
+Support vectors are the data points that define the position and the margin of the hyper-plane. They are called “support” vectors, because these are the representative data points of the classes. If we move one of them, the position and/or the margin will change.
 Given a set of training examples, each marked as belonging to one of two categories, an SVM training algorithm builds a model that assigns new examples into that same space and predicts which category they belong to based on which side of the gap they fall. The SVM algorithm maps training examples to points in space so as to maximize the width of the gap between the two categories.
 The effectiveness of SVM depends a lot on the selection of kernel. We tried using 4 different kernels and compared their results.
 
@@ -687,7 +687,7 @@ svm_best_stats["RBF norm",]<-svm_norm_stats["rbf",]
 ```{r echo=FALSE}
 print.data.frame(svm_norm_stats)
 ```
-Interestingly, the hyperbolic kernel on the whole dataset yielded the worst results by far, with sensitivity and precision of 0! the same kernel on the smaller dataset yielded a bit higher results, but still very bad ones (our genereal score jumped from 24% to 60.2%, but the other kernels are at 82% or 84%)
+Interestingly, the hyperbolic kernel on the whole dataset yielded the worst results by far, with sensitivity and precision of 0! the same kernel on the smaller dataset yielded a bit higher results, but still very bad ones (our general score jumped from 24% to 60.2%, but the other kernels are at 82% or 84%)
 
 ### z-score scaled
 
@@ -817,7 +817,7 @@ Again, we got the best results while using the RBF kernel, though this time it w
 
 ## SVM conclusions
 
-We saw that out of all the kernels, the standard Gaussian Radial basis function (RBF) gave the best result. We also saw that using the smaller dataset that included only the selected features did not yeild any better results. One last thing to note is that normalization yielded the same accuracy (86%), worse sensitivity (72% as opposed to 84%), but managed to get to 100% in both precision and specificity. 
+We saw that out of all the kernels, the standard Gaussian Radial basis function (RBF) gave the best result. We also saw that using the smaller dataset that included only the selected features did not yield any better results. One last thing to note is that normalization yielded the same accuracy (86%), worse sensitivity (72% as opposed to 84%), but managed to get to 100% in both precision and specificity. 
 
 ```{r message=FALSE, warning=FALSE, echo=FALSE, fig.height=3, fig.width=7}
 
@@ -973,7 +973,7 @@ The sensitivity was higher on the smaller dataset (80%->84%) with one less sick 
 ```{r echo=FALSE}
 best_knn_stats["CV, selected",]<-knn_cv_stats
 ```
-Compared to the normalized manually chosen data we have an increase in both precision (84%->87%) and the specificity (84%->88%), but a decrease in sensitivity (84%->80%). Because we put so much weight on the sensitivity, even though the precision and specificity were higher (the accuracy stayed 84%), the oveall general score was lower.
+Compared to the normalized manually chosen data we have an increase in both precision (84%->87%) and the specificity (84%->88%), but a decrease in sensitivity (84%->80%). Because we put so much weight on the sensitivity, even though the precision and specificity were higher (the accuracy stayed 84%), the overall general score was lower.
 
 #### repeated cross validation:
 We wanted to see if using repeated cross validation will yield better results.
@@ -1179,7 +1179,7 @@ best_stats["KNN",]<-cbind(best_knn%>% select(Accuracy,Sensitivity, Precision, Sp
 We did not see any difference whether we used the crossed validation or the repeated cross validation.
 We got worse results when we used the smaller dataset on the normalized data, but much better on the scaled data.
 Interestingly, the best results were with the manually chosen K's (when K=3). 
-using CV and repeated CV the best resukt was with K=17. We had manually chosen K=15 and K=21, and both were not as good as K=3.
+using CV and repeated CV the best result was with K=17. We had manually chosen K=15 and K=21, and both were not as good as K=3.
 Using KNN algorithm with K=3 on scaled data with only the selected featured gave us the best result yet.
 
 
@@ -1567,7 +1567,7 @@ best_stats["RF",]<-cbind(best_rf_stats["final_fit",], notes="final fit")
 ```
 We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions: more than 75% of chances that the model distinguish sick patients to healthy patients.
 
-Random forest classify patients with more sensitivity than decision tree. This result is not suprising by the fact that random forest build many decision trees and select the best.
+Random forest classify patients with more sensitivity than decision tree. This result is not surprising by the fact that random forest build many decision trees and select the best.
 
 # conclusions
 
@@ -1608,6 +1608,6 @@ grid.arrange(tableGrob(best_stats, theme = t1), all_statistics)
 ```
 
 The last figure shows all statistics according to algorithms (showing the best result of each algorithm) on the left, and a ROC plot (sensitivity by specificity) on the right. 
-We observe that KNN algorithm gives the best sensitivity score (0.92), so the highest rate of true positive cases, which is the most important variable.About the precision, (true predicted glaucoma/predicted glaucoma), type I error, KNN algorithm gives the better score (0.92) followed by DT algorithm (0.913). About the accurency (true prediction/ all prediction), proportion of correct prediction, KNN gives the best score again (0.92) follwed by DT algorithm (0.88). Fianlly, about the specificity, (true predicted healthy/healthy), KNN and DT algorithm give the same score (0.92). Combining all together, KNN algorithm gives the best predictions followed by decision tree algorithm. SVM and random forest give similar score of predictions, lower than KNN and decision tree.
+We observe that KNN algorithm gives the best sensitivity score (0.92), so the highest rate of true positive cases, which is the most important variable.About the precision, (true predicted glaucoma/predicted glaucoma), type I error, KNN algorithm gives the better score (0.92) followed by DT algorithm (0.913). About the accuracy (true prediction/ all prediction), proportion of correct prediction, KNN gives the best score again (0.92) followed by DT algorithm (0.88). Finally, about the specificity, (true predicted healthy/healthy), KNN and DT algorithm give the same score (0.92). Combining all together, KNN algorithm gives the best predictions followed by decision tree algorithm. SVM and random forest give similar score of predictions, lower than KNN and decision tree.
 
-The upper table is the statistic results of all algorithms (in numbers). We can see that the SVM ans the RF yielded the same result, which was the lowest. Nest we have the DT, which has the same sensitibity, a bit higher ccuracy, and much higher precision and specificity. The specificity (92%) was highest in both the DT and the KNN, and in all aspects the hoghest result we got was when using the KNN algorithm on scaled, selected (without highly correlated data) data. 
+The upper table is the statistic results of all algorithms (in numbers). We can see that the SVM ans the RF yielded the same result, which was the lowest. Nest we have the DT, which has the same sensitivity, a bit higher accuracy, and much higher precision and specificity. The specificity (92%) was highest in both the DT and the KNN, and in all aspects the highest result we got was when using the KNN algorithm on scaled, selected (without highly correlated data) data. 
