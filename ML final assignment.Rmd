@@ -20,6 +20,14 @@ bookdown::pdf_book:
 ```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 knitr::opts_chunk$set(fig.width=5, fig.height=3,collapse = TRUE) 
 ```
+
+Glaucoma is a disease that damages your eye’s optic nerve, and is the most common cause of irreversible blindness. It usually happens when fluid builds up in the front part of your eye. That extra fluid increases the pressure in your eye, damaging the optic nerve. This disease affects people from 40 years old to 60 years old. 
+In many cases, glaucoma may be asymptomatic, and so is not treated until it is too late (in some developing countries, 90% of glaucoma is undetected).
+
+In most cases, blindness can be prevented with appropriate control and treatment. A better awareness and a simple consultation once a year in the ophthalmologist could prevent visual disability in many people.
+An ophtalomogist can detect any abnormal pressure in eyes and can do some specific measurement with the help of
+OCT angiography (Optical Coherence Tomography Angiography). A classification of normal and sick patients can then help us predict if a patient has or could have glaucoma before it is too late.
+
 ## Upload data and libraries
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
@@ -59,7 +67,7 @@ library(ranger)
 glaucoma <- read.csv("GlaucomaM.csv")# read data
 ```
 
-We have data from 196 patients, with 63 features.
+We have data from 196 patients, half sick with glaucoma and half are healthy, with 63 features (from theOCT angiography).
 Since the whole table is already shuffled according to the 'Class' column, we don't need to shuffle the whole table again
 In order to get consistent results we initialized a pseudo random number generator. We also made sure to shuffle our data.
 ```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
@@ -84,10 +92,9 @@ can observe 8 clusters of features that highly correlate. Results obtained with 
 can observe one big cluster that could be divided in 2 and 2 others
 clusters of features.
 
-We would like to observe if we can  cluster patients healthy or with glaucoma with all the features.
+We wanted to observe if we can  cluster patients healthy or with glaucoma with all the features.
 We performed first a PCA on all features and values.
 
-Preform PCA on our data
 ```{r, message=FALSE, warning=FALSE, results='hide'}
 default_pca <- prcomp(glaucoma[,1:62], center = TRUE,  scale. = TRUE)
 summary(default_pca)
@@ -159,11 +166,9 @@ We will start learning about training and ML algorithms starting next practice.
 control <- trainControl(method="repeatedcv", number=10, repeats=3)
 model <- train(Class~., data=glaucoma, method="multinom", preProcess="scale", trControl=control)
 importance <- varImp(model, scale=FALSE) # estimate variable importance
-print(importance)
 plot(importance)
 important_feat<-glaucoma[,rownames(importance$importance)[importance$importance$Overall>0.5]]
 important_feat.pca <- prcomp(important_feat, center = TRUE,  scale. = TRUE)
-summary(important_feat.pca)
 important_feat[,"Class"]<-glaucoma[,"Class"]
 important_feat_plot <- autoplot(important_feat.pca, data = important_feat, colour = 'Class')
 fit_important <- lm(Class ~ ., cbind(Class = glaucoma$Class, important_feat.pca$x[, 1:2]) %>% as.data.frame())
@@ -171,7 +176,7 @@ fit_important <- lm(Class ~ ., cbind(Class = glaucoma$Class, important_feat.pca$
 
 We compared the results of all the PCA's we performed:
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE, fig.width=8, fig.height=3}
+```{r, message=FALSE, warning=FALSE, echo=FALSE, fig.width=8, fig.height=2}
 grid.arrange(default_pca_plot +
                labs(title = "all data" ,subtitle =
                                  paste(paste0("r-sqr= ", round(summary(fit_pca)$adj.r.squared, 3)),
@@ -282,7 +287,7 @@ test_set_z_new<-test_set_z[,colnames(data_no_corr)]
 ## algorithms evaluation
 In order to decide which algorithm was best we calculated the accuracy, sensitivity, precision and specificity. We also wanted one general number that includes all the calculations, so we did:
 
-- Sensitivity (true predicted glaucoma/have glaucoma) is the percentage of true positives -predicted to have glaucoma- out of all the people that actually have glaucoma. In other words- it refers to the test's ability to correctly detect ill patients who do have the condition. Since we don't want to miss a sick person that then won't be treated ( type II error), it is more important that the sensitivity  will be high. We decided to give it a weight of 4.
+- Sensitivity (true predicted glaucoma/have glaucoma) refers to the test's ability to correctly detect ill patients who do have the condition. Since we don't want to miss a sick person that then won't be treated ( type II error), it is more important that the sensitivity  will be high. We decided to give it a weight of 4.
 
 - Precision (true predicted glaucoma/predicted glaucoma), or positive predictive value (PPV) is the percentage of true positives out of all the predicted positives. We don't want to scare a person that isn't sick for nothing (type I error), but of course (in case of glaucoma) that error is preferable to type II error.  We decided to give it a weight of 2.
 
@@ -400,7 +405,7 @@ svm_stats["linear",]<-svm_linear_stats
 Again the whole dataset yielded better results.
 A standard Gaussian Radial basis function (RBF) is the second kernel we tried.
 
-```{r svm_rbf, message=FALSE, warning=FALSE}
+```{r svm_rbf, message=FALSE, warning=FALSE, results='hide'}
 Class_classifier_rbf <-  ksvm(x=Class ~., data=data_train,kernel = "rbfdot")
 ```
 ```{r svm rbf, message=FALSE, warning=FALSE, echo=FALSE}
@@ -433,10 +438,10 @@ svm_rbf_stats_new$General <- round(calc_score(svm_rbf_stats_new),3)
 print(paste("RBF: the whole dataset's score = ", svm_rbf_stats$General,"> the abridged dataset's score = ", svm_rbf_stats_new$General))
 svm_stats["RBF",]<-svm_rbf_stats
 ```
-```{r svm_poly, message=FALSE, warning=FALSE}
+```{r svm_poly, message=FALSE, warning=FALSE, results='hide'}
 Class_classifier_poly <-  ksvm(x=Class ~., data=data_train,kernel = "polydot")
 ```
-```{r SVM Polynomial, message=FALSE, warning=FALSE, echo=FALSE}
+```{r SVM Polynomial, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 Class_predictions_poly <- predict(Class_classifier_poly, data_test[,-63])
 svm_poly <- confusionMatrix(Class_predictions_poly,data_test[,63])
 # calculate performance
@@ -511,6 +516,7 @@ We saw that again using only the selected features gave no advantage. The best r
 print.data.frame(svm_stats[2:3,])
 ```
 ```{r message=FALSE, warning=FALSE, echo=FALSE, results='hide', fig.show='hide'}
+knitr::kable(svm_stats, caption = 'SVM results- default')
 t_svm_stats <- tableGrob(svm_stats[2:3,])
 gtitle_svm_stats <- textGrob("SVM statistics")
 gtable_svm_stats <- gtable_add_rows(t_svm_stats, heights = grobHeight(gtitle_svm_stats)+ unit(5,"mm"), pos = 0)
@@ -568,7 +574,7 @@ svm_linear_norm_stats_new$General <- round(calc_score(svm_linear_norm_stats_new)
 
 As before we ran the same kernels (except for the polynomial which yielded the same result as the linear) on both the whole dataset and the selected part, but show here the process of the linear kernel only (the rest can be seen in our code).
 
-```{r  message=FALSE, warning=FALSE, echo=FALSE}
+```{r  message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 print(paste("linear: the whole normalized dataset's score = ", svm_linear_norm_stats$General,"> the abridged dataset's score = ", svm_linear_norm_stats_new$General))
 
 svm_norm_stats<-svm_linear_norm_stats
@@ -603,7 +609,7 @@ svm_rbf_norm_stats_new <- data.frame(
 svm_rbf_norm_stats_new$General <- round(calc_score(svm_rbf_norm_stats_new),3)
 ```
 
-```{r  message=FALSE, warning=FALSE, echo=FALSE}
+```{r  message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 print(paste("rbf: the whole normalized dataset's score = ", svm_rbf_norm_stats$General,"> the abridged dataset's score = ", svm_rbf_norm_stats_new$General))
 
 svm_norm_stats["rbf",]<-svm_rbf_norm_stats
@@ -640,7 +646,7 @@ svm_tan_norm_stats_new$General <- round(calc_score(svm_tan_norm_stats_new),3)
 
 
 
-```{r message=FALSE, warning=FALSE, echo=FALSE, fig.height=3, fig.width=7}
+```{r message=FALSE, warning=FALSE, echo=FALSE, fig.height=3, fig.width=7, results='hide'}
 print(paste("tan: the whole normalized dataset's score = ", svm_tan_norm_stats$General,"< the abridged dataset's score = ", svm_tan_norm_stats_new$General))
 
 svm_norm_stats["tan, no corr",]<-svm_tan_norm_stats_new
@@ -665,10 +671,12 @@ knitr::kable(rbind(svm_norm_stats[-3,], "tan, all data"=svm_tan_norm_stats),
   row_spec(2, bold = T, color = "black", background = "yellow")
 
 svm_best_stats["RBF norm",]<-svm_norm_stats["rbf",]
+
 ```
 ##### SVM results using our normalization function:
-```{r echo=FALSE}
+```{r echo=FALSE, fig.show='hide', message=FALSE, warning=FALSE}
 print.data.frame(svm_norm_stats)
+
 ```
 Interestingly, the hyperbolic kernel on the whole dataset yielded the worst results by far, with sensitivity and precision of 0! the same kernel on the smaller dataset yielded a bit higher results, but still very bad ones (our general score jumped from 24% to 60.2%, but the other kernels are at 82% or 84%)
 
@@ -777,7 +785,7 @@ svm_best_stats["RBF z-scaled",]<-svm_z_stats["rbf",]
 ```
 
 ##### SVM results on scaled data:
-```{r echo=FALSE}
+```{r echo=FALSE, fig.show='hide', message=FALSE, warning=FALSE}
 print.data.frame(svm_z_stats)
 ```
 Again, we got the best results while using the RBF kernel, though this time it was better in all aspects.
@@ -820,7 +828,7 @@ knn_seperate_cv_stats <- data.frame(k=3, Accuracy=accuracy(knn_table_3)$.estimat
                            Precision=round(precision(knn_table_3),3), 
                            Specificity=round(specificity(knn_table_3),3))
 ```
-```{r manual k choice, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+```{r manual k choice, echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 
 pred_knn_9 <- knn(train = train_set_norm[,-63], test = test_set_norm[,-63], cl = data_train[,63], k=9)
 knn_table_9<-CrossTable(x = data_test[,63], y = pred_knn_9, prop.chisq=FALSE)[["t"]]
@@ -850,13 +858,15 @@ knn_seperate_cv_stats <- data.frame(
                                        round(specificity(knn_table_21),3)),
                            other=c("k=3","k=9","k=15","k=21"))
 knn_seperate_cv_stats$General <- round(calc_score(knn_seperate_cv_stats),3)
-knn_seperate_cv_stats
+
+knitr::kable(knn_seperate_cv_stats, caption = 'KNN results- manually chosen')
 best_knn_seperate_cv_stats<-knn_seperate_cv_stats[1,]
 ```
 The best sensitivity result (86.4%) was for k=9, but the accuracy was 82%, the precision was 76% and specificity of 78.6%.
 Using our calculation of the best score, the best results we got was with k=3, with accuracy, sensitivity, precision and specificity all equal to 84%. 
 We then ran the again algorithm with k=3, but time on the selected features only.
-```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
+```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide', fig.show='hide'}
+
 pred_knn_3_new <- knn(train = train_set_norm_new[,-21], test = test_set_norm_new[,-21], cl = data_train[,63], k=3)
 knn_table_3_new<-CrossTable(x = data_test[,63], y = pred_knn_3_new, prop.chisq=FALSE)[["t"]]
 knn_seperate_cv_stats_new <- data.frame(Accuracy=accuracy(knn_table_3_new)$.estimate,
@@ -892,14 +902,16 @@ knn_predictions_cv<-predict(knn_train_cv, test_set_norm)
 knn_cv_mat <- confusionMatrix(knn_predictions_cv,data_test[,63])
 ```
 We again did the same thing just on the dataset that didn't include high correlations.
-```{r KNN cross validation stats, message=FALSE, warning=FALSE, echo=FALSE}
+```{r KNN cross validation stats, message=FALSE, warning=FALSE, echo=FALSE, fig.show='hide', results='hide'}
 knn_cv_stats<- data.frame( 
                            Accuracy=knn_cv_mat[["overall"]][["Accuracy"]],
                            Sensitivity=round(knn_cv_mat[["byClass"]][["Sensitivity"]],3), 
                            Precision=round(knn_cv_mat[["byClass"]][["Precision"]],3), 
                            Specificity=round(knn_cv_mat[["byClass"]][["Specificity"]],3),
                            K=paste0("k=",knn_train_cv[["bestTune"]][["k"]]))
- 
+knitr::kable(knn_cv_stats, caption = 'KNN results- CV')
+``` 
+```{r KNN cross validation stats new, message=FALSE, warning=FALSE, echo=FALSE, fig.show='hide', results='hide'}
 knn_train_cv_new<-train(Class ~ .,train_set_norm_new,
                        method = "knn",
                        trControl = trainControl(method = "cv", number = 10),
@@ -915,8 +927,11 @@ knn_cv_new_stats<- data.frame(
                            K=paste0("k=3"))
 knn_cv_stats$General<-round(calc_score(knn_cv_stats),3)
 knn_cv_new_stats$General<-round(calc_score(knn_cv_new_stats),3)
-print(paste(paste0("CV: the whole dataset's score = ", knn_cv_stats$General ),
-            paste0("> the abridged dataset's score = ", knn_cv_new_stats$General)))
+knitr::kable(knn_cv_new_stats, caption = 'KNN results- CV selected')
+```
+```{r}
+print(paste("CV: the whole dataset's score = ", knn_cv_stats$General, "> the abridged dataset's score = ", knn_cv_new_stats$General))
+
 ```
 The sensitivity was higher on the smaller dataset (80%->84%) with one less sick diagnosed as healthy, and the accuracy stayed the same, but the precision (87%->75%) and specificity (88%->72%) both decreased drastically (4 more healthy were diagnosed as sick), so the overall grade was higher for the dataset that didn't include high correlations.
 ```{r echo=FALSE}
@@ -945,8 +960,8 @@ knn_repeatedcv_stats<- data.frame(
                            Specificity=round(knn_repcv_mat[["byClass"]][["Specificity"]],3),
                            K=paste0("k=", knn_train_repeatedcv[["bestTune"]][["k"]])) 
 
-```
-
+knitr::kable(knn_repeatedcv_stats, caption = 'KNN results- repeated CV')
+``` 
 
 ```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
 knn_train_repeatedcv_new<-train(Class ~.,train_set_norm_new,
@@ -989,7 +1004,7 @@ We wanted to see if we get better results if we use scaling on our data instead 
 ### manually
 
 We then tried with z score scaling instead of normalization. Again we started by choosing manually, and tried k=3,9,15,21, though we show here just for k=3
-```{r pred_knn_3_z, message=FALSE, warning=FALSE, results='hide'}
+```{r pred_knn_3_z, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 pred_knn_3_z <- knn(train = train_set_z[,-63], test = test_set_z[,-63], cl = data_train[,63], k=3)
 knn_table_3_z<-CrossTable(x = data_test[,63], y = pred_knn_3_z, prop.chisq=FALSE)[["t"]]
 ```
@@ -1022,12 +1037,14 @@ knn_seperate_cv_stats_z <- data.frame(
                                        round(specificity(knn_table_21_z),3)),
                            K=c("k=3","k=9","k=15","k=21"))
 knn_seperate_cv_stats_z$General <- calc_score(knn_seperate_cv_stats_z)
+knitr::kable(knn_seperate_cv_stats_z, caption = 'KNN results- manually scaled')
+
 knn_seperate_cv_stats_z_best<-knn_seperate_cv_stats_z[1,]
 ```
 We got the best 'General' result from k=3, with precision of 88% and specificity of 87%, but with sensitivity of 81.5%. The best sensitivity (84%) we got with k=21, but with precision and specificity of 84%.
 We wanted again to check if we can get better results with the smaller dataset. We decided to run it only with k=3, since that was the best result according to our calculations.
 
-```{r message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
+```{r message=FALSE, warning=FALSE, echo=FALSE, results='hide', fig.show='hide'}
 pred_knn_3_z_new <- knn(train = train_set_z_new[,-21], test = test_set_z_new[,-21], cl = data_train[,63], k=3)
 knn_table_3_z_new<-CrossTable(x = data_test[,63], y = pred_knn_3_z_new, prop.chisq=FALSE)[["t"]]
 knn_seperate_cv_stats_z_new <- data.frame(Accuracy=accuracy(knn_table_3_z_new)$.estimate,
@@ -1037,6 +1054,9 @@ knn_seperate_cv_stats_z_new <- data.frame(Accuracy=accuracy(knn_table_3_z_new)$.
 
 knn_seperate_cv_stats_z_best$General<-round(calc_score(knn_seperate_cv_stats_z_best),3)
 knn_seperate_cv_stats_z_new$General<-round(calc_score(knn_seperate_cv_stats_z_new),3)
+knitr::kable(knn_seperate_cv_stats_z_new, caption = 'KNN results- manually scaled selected')
+```
+```{r}
 print(paste(paste0("k=3: the whole z-scaled dataset's score = ",knn_seperate_cv_stats_z_best$General),
             paste0("< the abridged dataset's score = ",knn_seperate_cv_stats_z_new$General)))
 ```
@@ -1059,7 +1079,7 @@ knn_train_repeatedcv_z<-train(train_set_z[,-63],data_train[,63],
                        trControl = trainControl(method = "repeatedcv", number = 10, repeats = 10),
                        metric = "Kappa")
 ```
-```{r knn z score, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+```{r knn z score, echo=FALSE, message=FALSE, warning=FALSE, results='hide', fig.show='hide'}
 knn_predictions_rep_cv_z<-predict(knn_train_repeatedcv_z, test_set_z[,-63])
 knn_repcv_mat_z <- confusionMatrix(knn_predictions_rep_cv_z,data_test[,63])
 
@@ -1071,8 +1091,11 @@ knn_cv_stats_z <- data.frame(
                            Precision=round(knn_repcv_mat_z[["byClass"]][["Precision"]],3), 
                            Specificity=round(knn_repcv_mat_z[["byClass"]][["Specificity"]],3),
                            K=paste0("k=", knn_train_repeatedcv_z[["bestTune"]][["k"]])) 
+knn_cv_stats_z$General<-round(calc_score(knn_cv_stats_z),3)
+knitr::kable(knn_cv_stats_z, caption = 'KNN results- CV scaled selected')
+
 ```
-```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
+```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide', fig.show='hide'}
 knn_train_repeatedcv_z_new<-train(train_set_z_new[,-21],data_train[,63],
                        method = "knn",
                        tuneGrid = data.frame(k=seq(1,30,2)),
@@ -1089,8 +1112,8 @@ knn_cv_stats_z_new <- data.frame(
                            Precision=round(knn_repcv_mat_z_new[["byClass"]][["Precision"]],3), 
                            Specificity=round(knn_repcv_mat_z_new[["byClass"]][["Specificity"]],3),
                            K=paste0("k=", knn_train_repeatedcv_z_new[["bestTune"]][["k"]])) 
-knn_cv_stats_z$General<-round(calc_score(knn_cv_stats_z),3)
 knn_cv_stats_z_new$General<-round(calc_score(knn_cv_stats_z_new),3)
+knitr::kable(knn_cv_stats_z_new, caption = 'KNN results- CV scaled selected')
 
 ```
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
@@ -1263,7 +1286,7 @@ knitr::kable(best_dt_stats , caption = ' best  DT stat ')%>%
 Our best model was the first, default model, with sensitivity of 84% (like with the cost-matrix) and precision of 91.3% and specificity of 92%.
 
 #### confusion matrix of the best DT model:
-```{r message=FALSE, warning=FALSE, echo=FALSE}
+```{r message=FALSE, warning=FALSE, echo=FALSE, fig.height=1}
 grid.table(DT_pred_tbl[["table"]])
 best_stats["DT",]<-cbind(best_dt_stats[1,], notes="default")
 ``` 
@@ -1300,7 +1323,7 @@ We can see our model had 1000 trees like we specified, and several other metrics
 
 ### Estimating performance
 
-Next we want to see if we can improve our model. We do this by changing some things about it. 
+Next we wantd to see if we can improve our model. We did this by changing some things about it. 
 The changes can either be random (guessing) or more precise, depending on performance metrics. In our example, we will use the area under the Receiver Operating Characteristic (ROC) curve (which demonstrates the trade-off between the sensitivity and and specificity), and overall classification accuracy.
 
 Using the yardstick package, let's calculate ROC and Accuracy. Notice that we are still only working with the data_train partition of our data:
@@ -1317,7 +1340,7 @@ print(paste("training: the roc_auc estimate = ", round( rf_training_pred_roc_auc
       ", the accuracy estimate = ",round( rf_training_pred_acc$.estimate,3)))
 ```
 
-As we can see, these are very good results. Almost too good, but it is on the set we trained on.
+We these are very good results. Almost too good, but it is on the set we trained on.
 There are several reasons why training set statistics like the ones shown in this section can be unrealistically optimistic:
 
 - Overfitting - Models like random forests, neural networks, and other black-box methods can essentially memorize the training set. Re-predicting that same set should always result in nearly perfect results.
@@ -1451,10 +1474,11 @@ print(final_wf)
 print.data.frame(best_tree)
 ```
 
-So we have our best tree parameters. Lets take a better look:
 
-```{r  Exploring results final_tree, message=FALSE, warning=FALSE,results='hide', fig.height=2}
-# Exploring results
+```{r  Exploring results final_tree, message=FALSE, warning=FALSE,results='hide', fig.show='hide', echo=FALSE}
+#So we have our best tree parameters. Lets take a better look:
+
+  # Exploring results
 final_tree <-   final_wf %>%  fit(data = data_train) 
 print(final_tree)
 
