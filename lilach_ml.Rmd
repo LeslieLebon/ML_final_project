@@ -220,12 +220,9 @@ testdiv<-prop.table(table(test_set$Class))
 ```
 ```{r, message=FALSE, warning=FALSE, echo=FALSE}
 
-#split_data_by_index<-data.frame(set=c("train","test"),glaucoma=c(train_div[1],testdiv[1]), normal=c(train_div[2],testdiv[2]))
-
 print(paste0('The glaucoma/normal distribution was: train set = ',
        round(train_div[1],2),"/",round(testdiv[1],2), ', and test set = ',
        round(train_div[2],2),"/",round(testdiv[2],2)))
-#knitr::kable(split_data_by_index, caption = 'split_data by index')
 ```
 
 #### Split using the function 'initial_split'
@@ -238,7 +235,6 @@ train_div<-prop.table(table(data_train$Class))
 testdiv<-prop.table(table(data_test$Class))
 ```
 ```{r echo=FALSE}
-#split_data<-data.frame(set=c("train","test"),glaucoma=c(train_div[1],testdiv[1]),normal=c(train_div[2],testdiv[2]))
 print(paste0('The glaucoma/normal distribution was: train set = ',
        round(train_div[1],2),"/",round(testdiv[1],2), ', and test set = ',
        round(train_div[2],2),"/",round(testdiv[2],2)))
@@ -371,7 +367,6 @@ df_linear<-data.frame(predictions=c(as.numeric(Class_predictions_linear)),labels
 
 svm_linear_stats <- data.frame(  
                            Accuracy=svm_linear[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_linear[["auc"]],
                            Sensitivity=round(svm_linear[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_linear[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_linear[["byClass"]] [["Specificity"]],3))
@@ -417,7 +412,6 @@ svm_rbf <- confusionMatrix(Class_predictions_rbf,data_test[,63])
 df_rbf<-data.frame(predictions=c(as.numeric(Class_predictions_rbf)),labels = c(data_test$Class))
 svm_rbf_stats <- data.frame(  
                            Accuracy=svm_rbf[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_rbf[["auc"]],
                            Sensitivity=round(svm_rbf[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_rbf[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_rbf[["byClass"]][["Specificity"]],3))
@@ -430,7 +424,6 @@ df_rbf_new<-data.frame(predictions=c(as.numeric(Class_predictions_rbf_new)),labe
 pROC_svm_rbf_new <- roc(df_rbf_new$labels,df_rbf_new$predictions)
 svm_rbf_stats_new <- data.frame(  
                            Accuracy=svm_rbf_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_rbf_new[["auc"]],
                            Sensitivity=round(svm_rbf_new[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_rbf_new[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_rbf_new[["byClass"]][["Specificity"]],3))
@@ -451,7 +444,6 @@ df_poly<-data.frame(predictions=c(as.numeric(Class_predictions_poly)),labels = c
 pROC_svm_poly <- roc(df_poly$labels,df_poly$predictions)
 svm_poly_stats <- data.frame(
                            Accuracy=svm_poly[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_poly[["auc"]],
                            Sensitivity=round(svm_poly[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_poly[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_poly[["byClass"]][["Specificity"]],3))
@@ -463,7 +455,6 @@ df_poly_new<-data.frame(predictions=c(as.numeric(Class_predictions_poly_new)),la
 pROC_svm_pol_newy <- roc(df_poly_new$labels,df_poly_new$predictions)
 svm_poly_stats_new <- data.frame( 
                            Accuracy=svm_poly_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_poly[["auc"]],
                            Sensitivity=round(svm_poly_new[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_poly_new[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_poly_new[["byClass"]][["Specificity"]],3))
@@ -486,7 +477,6 @@ svm_tan <- confusionMatrix(Class_predictions_tan,data_test[,63])
 df_tan<-data.frame(predictions=c(as.numeric(Class_predictions_tan)),labels = c(data_test$Class))
 pROC_svm_tan <- roc(df_tan$labels,df_tan$predictions)
 svm_tan_stats <- data.frame(Accuracy=svm_tan[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_tan[["auc"]],
                            Sensitivity=round(svm_tan[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_tan[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_tan[["byClass"]][["Specificity"]],3))
@@ -496,7 +486,6 @@ Class_classifier_tan_new <- ksvm(x=Class ~., data=data_train_new,kernel = "tanhd
 Class_predictions_tan_new <- predict(Class_classifier_tan_new, data_test_new[,-63])
 svm_tan_new <- confusionMatrix(Class_predictions_tan_new,data_test[,63])
 svm_tan_stats_new <- data.frame(Accuracy=svm_tan_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_tan[["auc"]],
                            Sensitivity=round(svm_tan_new[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_tan_new[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_tan_new[["byClass"]][["Specificity"]],3))
@@ -558,7 +547,6 @@ svm_linear_norm <- confusionMatrix(Class_predictions_linear_norm,data_test[,63])
 pROC_svm_linear_norm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_linear_norm)))
 svm_linear_norm_stats <- data.frame( 
                            Accuracy=svm_linear_norm[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_linear_norm[["auc"]],
                            Sensitivity=round(svm_linear_norm[["byClass"]][["Sensitivity"]], 3),
                            Precision=round(svm_linear_norm[["byClass"]][["Precision"]],3), 
                            Specificity=round(svm_linear_norm[["byClass"]][["Specificity"]],3))
@@ -570,7 +558,6 @@ svm_linear_norm_new <- confusionMatrix(Class_predictions_linear_norm_new,data_te
 pROC_svm_linear_norm_new <- roc(c(data_test$Class), c(as.numeric(Class_predictions_linear_norm_new)))
 svm_linear_norm_stats_new <- data.frame( 
                            Accuracy=svm_linear_norm_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_linear_norm[["auc"]],
                            Sensitivity=round(svm_linear_norm_new[["byClass"]][["Sensitivity"]], 3),
                            Precision=round(svm_linear_norm_new[["byClass"]][["Precision"]],3), 
                            Specificity=round(svm_linear_norm_new[["byClass"]][["Specificity"]],3))
@@ -598,7 +585,6 @@ svm_rbf_norm <- confusionMatrix(Class_predictions_rbf_norm,data_test[,63])
 pROC_svm_rbf_norm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_rbf_norm)))
 svm_rbf_norm_stats <- data.frame( 
                            Accuracy=svm_rbf_norm[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_rbf_norm[["auc"]],
                            Sensitivity=round(svm_rbf_norm[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_rbf_norm[["byClass"]][["Precision"]],3), 
                         Specificity=round(svm_rbf_norm[["byClass"]][["Specificity"]],3))
@@ -610,7 +596,6 @@ svm_rbf_norm_new <- confusionMatrix(Class_predictions_rbf_norm_new,data_test[,63
 pROC_svm_rbf_norm_new <- roc(c(data_test$Class), c(as.numeric(Class_predictions_rbf_norm_new)))
 svm_rbf_norm_stats_new <- data.frame(
                            Accuracy=svm_rbf_norm_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_rbf_norm[["auc"]],
                            Sensitivity=round(svm_rbf_norm_new[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_rbf_norm_new[["byClass"]][["Precision"]],3), 
                         Specificity=round(svm_rbf_norm_new[["byClass"]][["Specificity"]],3))
@@ -633,7 +618,6 @@ svm_tan_norm <- confusionMatrix(Class_predictions_tan_norm,data_test[,63])
 pROC_svm_tan_norm <- roc(c(data_test$Class), c(as.numeric(Class_predictions_tan_norm)))
 svm_tan_norm_stats <- data.frame(
                            Accuracy=svm_tan_norm[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_tan_norm[["auc"]],
                            Sensitivity=round(svm_tan_norm[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_tan_norm[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_tan_norm[["byClass"]][["Specificity"]],3))
@@ -645,7 +629,6 @@ svm_tan_norm_new <- confusionMatrix(Class_predictions_tan_norm_new,data_test[,63
 pROC_svm_tan_norm_new <- roc(c(data_test$Class), c(as.numeric(Class_predictions_tan_norm_new)))
 svm_tan_norm_stats_new <- data.frame(
                            Accuracy=svm_tan_norm_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_tan_norm[["auc"]],
                            Sensitivity=round(svm_tan_norm_new[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_tan_norm_new[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_tan_norm_new[["byClass"]][["Specificity"]],3))
@@ -702,7 +685,6 @@ svm_linear_z <- confusionMatrix(Class_predictions_linear_z,data_test[,63])
 pROC_svm_linear_z <- roc(c(data_test$Class), c(as.numeric(Class_predictions_linear_z)))
 svm_linear_z_stats <- data.frame(
                            Accuracy=svm_linear_z[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_linear_z[["auc"]],
                            Sensitivity=round(svm_linear_z[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_linear_z[["byClass"]][["Precision"]],3), 
                            Specificity=round(svm_linear_z[["byClass"]][["Specificity"]],3))
@@ -713,7 +695,6 @@ svm_linear_z_new <- confusionMatrix(Class_predictions_linear_z,data_test[,63])
 pROC_svm_linear_z_new <- roc(c(data_test$Class), c(as.numeric(Class_predictions_linear_z_new)))
 svm_linear_z_new_stats <- data.frame(
                            Accuracy=svm_linear_z_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_linear_z_new[["auc"]],
                            Sensitivity=round(svm_linear_z_new[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(round(svm_linear_z_new[["byClass"]][["Precision"]],3), 3),
                            Specificity=round(svm_linear_z_new[["byClass"]][["Specificity"]],3)) 
@@ -735,7 +716,6 @@ svm_rbf_z <- confusionMatrix(Class_predictions_rbf_z,data_test[,63])
 pROC_svm_rbf_z <- roc(c(data_test$Class), c(as.numeric(Class_predictions_rbf_z)))
 svm_rbf_z_stats <- data.frame( 
                            Accuracy=svm_rbf_z[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_rbf_z[["auc"]],
                            Sensitivity=round(svm_rbf_z[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_rbf_z[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_rbf_z[["byClass"]] [["Specificity"]],3)) 
@@ -746,7 +726,6 @@ svm_rbf_z_new <- confusionMatrix(Class_predictions_rbf_z_new,data_test[,63])
 pROC_svm_rbf_z_new <- roc(c(data_test$Class), c(as.numeric(Class_predictions_rbf_z_new)))
 svm_rbf_z_stats_new <- data.frame(
                            Accuracy=svm_rbf_z_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_rbf_z[["auc"]],
                            Sensitivity=round(svm_rbf_z_new[["byClass"]] [["Sensitivity"]],3), 
                            Precision=round(svm_rbf_z_new[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_rbf_z_new[["byClass"]] [["Specificity"]],3)) 
@@ -767,7 +746,6 @@ svm_tan_z <- confusionMatrix(Class_predictions_tan_z,data_test[,63])
 pROC_svm_tan_z <- roc(c(data_test$Class), c(as.numeric(Class_predictions_tan_z)))
 svm_tan_z_stats <- data.frame(  
                            Accuracy=svm_tan_z[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_tan_z[["auc"]],
                            Sensitivity=round(svm_tan_z[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_tan_z[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_tan_z[["byClass"]][["Specificity"]],3)) 
@@ -778,7 +756,6 @@ svm_tan_z_new <- confusionMatrix(Class_predictions_tan_z_new,data_test[,63])
 pROC_svm_tan_z_new <- roc(c(data_test$Class), c(as.numeric(Class_predictions_tan_z_new)))
 svm_tan_z_stats_new <- data.frame(  
                            Accuracy=svm_tan_z_new[["overall"]][["Accuracy"]],
-                           #AUC=pROC_svm_tan_z[["auc"]],
                            Sensitivity=round(svm_tan_z_new[["byClass"]] [["Sensitivity"]], 3),
                            Precision=round(svm_tan_z_new[["byClass"]] [["Precision"]],3), 
                            Specificity=round(svm_tan_z_new[["byClass"]][["Specificity"]],3)) 
@@ -790,17 +767,6 @@ print(paste(paste0("the whole z-scaled dataset's score (hyperbolic) is ", svm_ta
             paste0("; the abridged dataset's score = ", svm_tan_z_stats_new$General)))
 svm_z_stats["tan, no corr",]<-svm_tan_z_stats_new
 ```
-```{r warning=FALSE, message=FALSE, echo=FALSE}
-#print statistics
-
-
-#t_svm_stats_z <- tableGrob(svm_z_stats[-4,])
-#gtitle_svm_stats_z <- textGrob("SVM z-scaled statistics")
-#gtable_svm_stats_z <- gtable_add_rows(t_svm_stats_z, heights = grobHeight(gtitle_svm_stats_z)+ unit(5,"mm"), pos = 0)
-#gtable_svm_stats_z <- gtable_add_grob(gtable_svm_stats_z, gtitle_svm_stats_z, 1, 1, 1, ncol(gtable_svm_stats_z))
-#grid.arrange(gtable_svm_stats_z,ncol=1)
-
-```
 ```{r fig.width=7,echo=FALSE, results='hide', fig.show='hide'}
 knitr::kable(svm_z_stats, caption = 'SVM results on scaled data')%>%
   kable_paper("striped", full_width = F) %>%
@@ -809,6 +775,7 @@ knitr::kable(svm_z_stats, caption = 'SVM results on scaled data')%>%
 
 svm_best_stats["RBF z-scaled",]<-svm_z_stats["rbf",]
 ```
+
 ##### SVM results on scaled data:
 ```{r echo=FALSE}
 print.data.frame(svm_z_stats)
@@ -823,24 +790,6 @@ We saw that out of all the kernels, the standard Gaussian Radial basis function 
 
 
 knitr::kable(svm_best_stats, caption = 'best SVM results')%>% kable_paper("striped", full_width = F) %>% column_spec(6, bold = T) %>%  row_spec(1, bold = T, color = "black", background = "yellow")
-
-
-t_svm_stats_best <- tableGrob(svm_best_stats)
-gtitle_svm_stats_best <- textGrob("SVM best statistics")
-gtable_svm_stats_best <- gtable_add_rows(t_svm_stats_best, heights = grobHeight(gtitle_svm_stats_best)+ unit(5,"mm"), pos = 0)
-gtable_svm_stats_best <- gtable_add_grob(gtable_svm_stats_best, gtitle_svm_stats_best, 1, 1, 1, ncol(gtable_svm_stats_best))
-
-t_svm_rbf <- tableGrob(svm_rbf[["table"]])
-gtitle_svm_rbf <- textGrob("RBF confusion matrix")
-gtable_svm_rbf <- gtable_add_rows(t_svm_rbf, heights = grobHeight(gtitle_svm_rbf)+ unit(5,"mm"), pos = 0)
-gtable_svm_rbf <- gtable_add_grob(gtable_svm_rbf, gtitle_svm_rbf, 1, 1, 1, ncol(gtable_svm_rbf))
-
-t_svm_rbf_norm <- tableGrob(svm_rbf_norm[["table"]])
-gtitle_svm_rbf_norm <- textGrob("RBF norm confusion matrix")
-gtable_svm_rbf_norm <- gtable_add_rows(t_svm_rbf_norm, heights = grobHeight(gtitle_svm_rbf_norm)+ unit(5,"mm"), pos = 0)
-gtable_svm_rbf_norm <- gtable_add_grob(gtable_svm_rbf_norm, gtitle_svm_rbf_norm, 1, 1, 1, ncol(gtable_svm_rbf_norm))
-
-#grid.arrange(gtable_svm_rbf ,gtable_svm_rbf_norm, ncol=2, nrow=1)
 ```
 
 Using the normalized data, all  25 of the healthy were predicted as healthy, whereas using the default scaling 3 were told they were sick when they were actually healthy.
@@ -995,9 +944,7 @@ knn_repeatedcv_stats<- data.frame(
                            Precision=round(knn_repcv_mat[["byClass"]][["Precision"]],3), 
                            Specificity=round(knn_repcv_mat[["byClass"]][["Specificity"]],3),
                            K=paste0("k=", knn_train_repeatedcv[["bestTune"]][["k"]])) 
-#knn_repcv_mat[["table"]]
-#grid.arrange(tableGrob(knn_repcv_mat[["table"]]))
-#grid.arrange(tableGrob(best_knn_stats))
+
 ```
 
 
@@ -1135,7 +1082,6 @@ knn_train_repeatedcv_z_new<-train(train_set_z_new[,-21],data_train[,63],
 knn_predictions_rep_cv_z_new<-predict(knn_train_repeatedcv_z_new, test_set_z_new[,-21])
 knn_repcv_mat_z_new <- confusionMatrix(knn_predictions_rep_cv_z_new,data_test[,63])
 
-#knn_z_table1<-CrossTable(x = data_test[,63], y = knn_predictions_rep_cv_z_new, prop.chisq=FALSE)
 df_z_new<-data.frame(predictions=c(as.numeric(knn_predictions_rep_cv_z_new)),labels = c(data_test[,63]))
 knn_cv_stats_z_new <- data.frame(
                           Accuracy=knn_repcv_mat_z_new[["overall"]][["Accuracy"]],
@@ -1170,7 +1116,6 @@ knitr::kable(best_knn_stats %>% select(Accuracy,Sensitivity, Precision, Specific
   kable_paper("striped", full_width = F) %>%
   column_spec(6, bold = T) %>%
   row_spec(4, bold = T, color = "black", background = "yellow")
-#grid.arrange( plotted_knn, tableGrob(best_knn_stats[,-7][,-5]),nrow = 2, ncol = 1)
 
 best_knn<-best_knn_stats[best_knn_stats$General==max(best_knn_stats$General),]
 best_stats["KNN",]<-cbind(best_knn%>% select(Accuracy,Sensitivity, Precision, Specificity,General), notes=paste(rownames(best_knn)))
@@ -1218,7 +1163,6 @@ DT_pred <- predict(DT_model, data_test)
 DT_pred_tbl<- confusionMatrix(DT_pred,data_test[,63])
 ```
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
-#print.table(DT_pred_tbl[["table"]])
 best_dt_stats <- data.frame( 
                           Accuracy=DT_pred_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(DT_pred_tbl[["byClass"]][["Sensitivity"]],3), 
@@ -1254,7 +1198,6 @@ summary(DT_boost10)
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
 DT_boost_pred10 <- predict(DT_boost10, data_test)
 DT_boost_pred10_tbl<-confusionMatrix(DT_boost_pred10, data_test[,63])
-#print.table(DT_boost_pred10_tbl[["table"]])
 best_dt_stats["boosting with 10 trials",] <- data.frame(
                           Accuracy=DT_boost_pred10_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(DT_boost_pred10_tbl[["byClass"]][["Sensitivity"]],3), 
@@ -1296,7 +1239,6 @@ dt_cost_pred_tbl<-confusionMatrix(dt_cost_pred, data_test[,63],dnn = c('predicte
 
 ```
 ```{r message=FALSE, warning=FALSE, fig.height=6, fig.cap="Desition Tree", fig.width=16, echo=FALSE}
-#print.table(dt_cost_pred_tbl[["table"]])
 best_dt_stats["fine tuning with cost matrix",] <- data.frame(
                           Accuracy=dt_cost_pred_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(dt_cost_pred_tbl[["byClass"]][["Sensitivity"]],3), 
@@ -1323,8 +1265,6 @@ Our best model was the first, default model, with sensitivity of 84% (like with 
 #### confusion matrix of the best DT model:
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
 grid.table(DT_pred_tbl[["table"]])
-#knitr::kable(DT_pred_tbl[["table"]] , caption = 'confusion matrix of the best DT model') %>% kable_paper("striped", full_width = F) 
-
 best_stats["DT",]<-cbind(best_dt_stats[1,], notes="default")
 ``` 
 
@@ -1399,7 +1339,6 @@ rf_testing_pred_acc<- rf_testing_pred %>%  accuracy(truth = Class, .pred_class)#
 print(paste("testing: the roc_auc estimate = ", round( rf_testing_pred_roc$.estimate, 3),
       ", the accuracy estimate = ",round( rf_testing_pred_acc$.estimate,3)))
 
-#print(rf_testing_pred_tbl[["table"]])
 best_rf_stats <- data.frame(
                           Accuracy=rf_testing_pred_tbl[["overall"]][["Accuracy"]],
                            Sensitivity=round(rf_testing_pred_tbl[["byClass"]][["Sensitivity"]],3), 
@@ -1407,7 +1346,6 @@ best_rf_stats <- data.frame(
                            Specificity=round(rf_testing_pred_tbl[["byClass"]][["Specificity"]],3)) 
 rownames(best_rf_stats)<-"RF default"
 
-#print.data.frame(best_rf_stats)
 ```
 These validation results are lower than the ones we got on the training data, as expected, but are still pretty good.
 
@@ -1427,8 +1365,6 @@ rf_fit_rs <-   rf_wf %>%   fit_resamples(folds)# add folds to workflow and train
 rf_fit_rs_tbl_stats<-collect_metrics(rf_fit_rs)
 print(paste("the",rf_fit_rs_tbl_stats[1,1],"estimate =", round(rf_fit_rs_tbl_stats[1,]$mean,3), 
              ", the ",rf_fit_rs_tbl_stats[2,1],"estimate = ",round(rf_fit_rs_tbl_stats[2,]$mean,3)))
-#print.data.frame(collect_metrics(rf_fit_rs)%>% select(.metric, mean, std_err))
-#knitr::kable(collect_metrics(rf_fit_rs), caption = 'collect_metrics(rf_fit_rs)')
 ```
 ```{r message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
 
@@ -1450,7 +1386,6 @@ best_rf_stats["10-fold CV",] <- data.frame(
                            Precision=round(rf_wf_fit_tbl[["byClass"]][["Precision"]],3), 
                            Specificity=round(rf_wf_fit_tbl[["byClass"]][["Specificity"]],3))
 best_rf_stats["10-fold CV",]$General<-calc_score(best_rf_stats["10-fold CV",])
-#print.data.frame(best_rf_stats["10-fold CV",])
 ```
 
 
@@ -1565,9 +1500,9 @@ best_stats["RF",]<-cbind(best_rf_stats["final_fit",], notes="final fit")
 ```{r echo=FALSE, fig.height=3}
 #final_fit_pred %>%  roc_curve(Class, .pred_glaucoma) %>%   autoplot()
 ```
-We can observe in the ROC curve that in our true positive prediction we have very few false positive predictions: more than 75% of chances that the model distinguish sick patients to healthy patients.
+We observed in the ROC curve that in our true positive prediction we have very few false positive predictions: more than 75% of chances that the model distinguish sick patients to healthy patients.
 
-Random forest classify patients with more sensitivity than decision tree. This result is not surprising by the fact that random forest build many decision trees and select the best.
+Random forest classifies patients with more sensitivity than decision tree. This result is not surprising by the fact that random forest build many decision trees and select the best.
 
 # conclusions
 
@@ -1577,9 +1512,6 @@ Before we tested the different algorithms, we defined a weight for each variable
 
 
 ```{r general conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', fig.cap= "all statistics", fig.width=15, fig.height=5}
-#knitr::kable(best_stats , caption = ' best RF stat results')%>% kable_paper("striped", full_width = F)  %>%
- # column_spec(6, bold = T) %>% row_spec(1, bold = T, color = "black", background = "yellow")
-
 pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions)
 pROC_knn_3_z_new <- roc(c(test_set_z$Class), c(as.numeric(pred_knn_3_z_new)))
 pROC_DT <- roc(c(test_set_z$Class), c(as.numeric(DT_pred)))
