@@ -50,9 +50,7 @@ library(C50) # DT
 library(modeldata)  # for the cells data
 library(vip)        # for variable importance plots
 library(ranger)
-library(ISLR)
-library(rpart)
-library(rpart.plot)
+
 ```
 
 
@@ -97,7 +95,7 @@ default_pca_plot <- autoplot(default_pca, data = glaucoma, colour = 'Class')
 fit_pca <- lm(Class ~ .,
             cbind(Class = glaucoma[, "Class"], default_pca$x[, 1:2]) %>% as.data.frame())
 ```
-```{r, message=FALSE, warning=FALSE, echo=FALSE, fig.height=2}
+```{r, message=FALSE, warning=FALSE, echo=FALSE, fig.height=2, fig.cap= 'default PCA plot', results='hide', fig.show='hide'}
 grid.arrange(default_pca_plot +
                labs(title = paste0("hopkins=",round(hopkins(glaucoma[,1:62], m=nrow(default_pca$x)-1),3)),
                     subtitle =paste0("r-sqr= ", round(summary(fit_pca)$adj.r.squared, 3))))
@@ -170,24 +168,27 @@ important_feat[,"Class"]<-glaucoma[,"Class"]
 important_feat_plot <- autoplot(important_feat.pca, data = important_feat, colour = 'Class')
 fit_important <- lm(Class ~ ., cbind(Class = glaucoma$Class, important_feat.pca$x[, 1:2]) %>% as.data.frame())
 ```
-```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide', fig.show='hide', fig.cap="PCA", fig.width=6, fig.height=2}
+
+We compared the results of all the PCA's we performed:
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, fig.width=8, fig.height=3}
 grid.arrange(default_pca_plot +
                labs(title = "all data" ,subtitle =
                                  paste(paste0("r-sqr= ", round(summary(fit_pca)$adj.r.squared, 3)),
                                  paste0(";hopkins=",round(hopkins(glaucoma[,-63], m=nrow(default_pca$x)-1),4)))) +
-               theme(legend.position = "bottom"),
+               theme(legend.position = "none"),
              corr_pca_plot + labs(title = "remove correlates",subtitle =
                                  paste(paste0("r-sqr= ", round(summary(fit_corr_pca )$adj.r.squared, 3)),
                                  paste0(";hopkins=",round(hopkins(data_no_corr[,-21], m=nrow(corr_pca$x)-1),3)))) +
-               theme(legend.position = "bottom"),
+               theme(legend.position = "none"),
              important_feat_plot + labs(title = "keep importatnt features",subtitle =
                                  paste(paste0("r-sqr= ", round(summary(fit_important)$adj.r.squared, 3)),
                                  paste0(";hopkins=",
                                         round(hopkins(important_feat[,-31], m=nrow(important_feat.pca$x)-1),4)))) +
-               theme(legend.position = "bottom"),
-             ncol=3,nrow=1) 
+               theme(legend.position = "right"),
+             ncol=3,nrow=1, widths=c(4,4,5)) 
 ```
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 pca_stats <- data.frame(features = c("All features", "Without correlated features", "Only important features"),
                         r_squared = c(round(summary(fit_pca)$adj.r.squared, 3),
                                       round(summary(fit_corr_pca)$adj.r.squared, 3),
@@ -197,7 +198,7 @@ pca_stats <- data.frame(features = c("All features", "Without correlated feature
                                     round(hopkins(important_feat[,-31], m=nrow(important_feat.pca$x)-1),4)))
 print.data.frame(pca_stats)                      
 ```
-It looks like the best result we got from the data without the correlated features. We will sometimes try to run the algorithms on the smaller dataset without the correlated, but seeing as they are all fairly similar, we'll mainly work on the whole dataset.
+It looks like there is no big difference this way or that. The best result we got from the data without the correlated features. We will sometimes try to run the algorithms on the smaller dataset without the correlated, but seeing as they are all fairly similar, we'll mainly work on the whole dataset.
 
 
 ## Split into training and test sets
@@ -655,17 +656,7 @@ svm_tan_norm_stats_new$General <- round(calc_score(svm_tan_norm_stats_new),3)
 ```
 
 
-```{r svm normalized data print, message=FALSE, warning=FALSE, echo=FALSE,results='hide'}
-#print statistics
-best_svm_norm_stats_melt<-svm_norm_stats %>% 
-  select(Accuracy,Sensitivity,Precision,Specificity) %>%
-  pivot_longer(., cols = c(Accuracy,Sensitivity,Precision,Specificity), 
-               names_to = "statistics", values_to = "percentage")
 
-plotted_svm_norm<-ggplot(best_svm_norm_stats_melt,aes(x = statistics, y = percentage, fill = method)) + geom_bar(position = 'dodge', stat='identity')+ labs(title = "normalized data- svm statistics")+ theme(legend.position="top")
-
-#grid.arrange(plotted_svm_norm, tableGrob(svm_norm_stats[,-1]), nrow = 2, ncol = 1)
-```
 ```{r message=FALSE, warning=FALSE, echo=FALSE, fig.height=3, fig.width=7}
 print(paste("tan: the whole normalized dataset's score = ", svm_tan_norm_stats$General,"< the abridged dataset's score = ", svm_tan_norm_stats_new$General))
 
@@ -872,7 +863,7 @@ The KNN algorithm is a non-parametric supervised learning method, used for class
 ## normalized data
 ### choose K's manually
 We started by choosing different K's manually. We chose and tried k=3,9,15,21, but we show here the whole process just for k=3
-```{r pred_knn_3, message=FALSE, warning=FALSE, results='hide'}
+```{r  message=FALSE, warning=FALSE, results='hide'}
 pred_knn_3 <- knn(train = train_set_norm[,-63], test = test_set_norm[,-63], cl = data_train[,63], k=3)
 knn_table_3<-CrossTable(x = data_test[,63], y = pred_knn_3, prop.chisq=FALSE)[["t"]]
 knn_seperate_cv_stats <- data.frame(k=3, Accuracy=accuracy(knn_table_3)$.estimate,
@@ -1304,7 +1295,7 @@ dt_cost_pred <- predict(dt_cost, data_test) # predict on test data
 dt_cost_pred_tbl<-confusionMatrix(dt_cost_pred, data_test[,63],dnn = c('predicted', 'actual'))
 
 ```
-```{r message=FALSE, warning=FALSE, fig.height=3, fig.cap="Desition Tree", fig.width=8, echo=FALSE}
+```{r message=FALSE, warning=FALSE, fig.height=6, fig.cap="Desition Tree", fig.width=16, echo=FALSE}
 #print.table(dt_cost_pred_tbl[["table"]])
 best_dt_stats["fine tuning with cost matrix",] <- data.frame(
                           Accuracy=dt_cost_pred_tbl[["overall"]][["Accuracy"]],
@@ -1313,7 +1304,6 @@ best_dt_stats["fine tuning with cost matrix",] <- data.frame(
                            Specificity=round(dt_cost_pred_tbl[["byClass"]][["Specificity"]],3)) 
 best_dt_stats$General <- calc_score(best_dt_stats)
 plot(dt_cost)
-
 
 ```
  
@@ -1330,8 +1320,6 @@ knitr::kable(best_dt_stats , caption = ' best  DT stat ')%>%
 
 Our best model was the first, default model, with sensitivity of 84% (like with the cost-matrix) and precision of 91.3% and specificity of 92%.
 
- 
-
 #### confusion matrix of the best DT model:
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
 grid.table(DT_pred_tbl[["table"]])
@@ -1343,9 +1331,11 @@ best_stats["DT",]<-cbind(best_dt_stats[1,], notes="default")
 
 
 
+
+
 # Random forest (RF) algorithm
 
-Random forest is a Supervised Machine Learning Algorithm. This algorithm is used in Classification and Regression problems. It builds decision trees on different samples and takes their majority vote for classification and average in case of regression.
+Random forest is a Supervised Machine Learning Algorithm that is used in Classification and Regression problems. It builds decision trees on different samples and takes their majority vote for classification and average in case of regression.
 The Random Forest Algorithm can handle the data set containing continuous variables as in the case of regression and categorical variables as in the case of classification.(cf: https://www.analyticsvidhya.com/blog/2021/06/understanding-random-forest/)
 
 ## Random Forest Modeling
@@ -1495,7 +1485,7 @@ tree_res %>% collect_metrics()
 
 Its easier to see how the models did with a graph:
 
-```{r RF plot preformance, message=FALSE, warning=FALSE, echo=FALSE, results='hide', fig.height=2}
+```{r RF plot preformance, message=FALSE, warning=FALSE, echo=FALSE, results='hide', fig.height=2, fig.cap='Model tuning with a grid evaluation'}
 tree_res %>%
   collect_metrics() %>%
   mutate(tree_depth = factor(tree_depth)) %>%
@@ -1525,18 +1515,15 @@ print(final_wf)
 ```{r message=FALSE, warning=FALSE,echo=FALSE}
 print.data.frame(best_tree)
 ```
-### Exploring results
 
 So we have our best tree parameters. Lets take a better look:
 
-```{r  Exploring results final_tree, message=FALSE, warning=FALSE,results='hide'}
+```{r  Exploring results final_tree, message=FALSE, warning=FALSE,results='hide', fig.height=2}
+# Exploring results
 final_tree <-   final_wf %>%  fit(data = data_train) 
 print(final_tree)
-```
 
-Another way to look at how the model uses the different features is using the vip package:
-
-```{r message=FALSE, warning=FALSE, fig.height=3, results='hide', fig.show='hide'}
+# vip package: another way to look at how the model uses the different features
 final_tree %>%   extract_fit_parsnip() %>%   vip()
 ```
 
@@ -1571,7 +1558,6 @@ knitr::kable(best_rf_stats , caption = ' best RF stat results')%>%
 #### confusion matrix of the best RF model:
 ```{r message=FALSE, warning=FALSE, echo=FALSE}
 grid.table(final_fit_pred_tbl[["table"]])
-best_stats["RF",]<-best_rf_stats["final_fit",]
 best_stats["RF",]<-cbind(best_rf_stats["final_fit",], notes="final fit")
 
 ```
@@ -1585,24 +1571,43 @@ Random forest classify patients with more sensitivity than decision tree. This r
 
 # conclusions
 
-```{r general conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE, fig.height=2}
-knitr::kable(best_stats , caption = ' best RF stat results')%>%
-  kable_paper("striped", full_width = F)  %>%
-  column_spec(6, bold = T) %>%
-  row_spec(1, bold = T, color = "black", background = "yellow")
+To summarize, our dataset is composed of 196 patients:98 sicks and 98 healthy.
+There are 63 features corresponding to the blood vessels eye pressure which help to determine if a patient has glaucoma. Each feature has its degree of importance, some of them seem to be more important than others. Keeping only important features (based on threshold determine by varImp), we did not observe any improvement in the patient classification. Moreover, we observed that some features highly correlate. Unfortunately, after deleting highly correlated features, we did not observe a major improvement in the patient classification. Thereby, we decided to keep all 63 features. We did try in the SVM and KNN algorithms also to use the selected features. We saw no improvement in the SVM model, though our best result was with the KNN algorithm using the selected features only.
+Before we tested the different algorithms, we defined a weight for each variable allowing to evaluate the predictions: 4 for sensitivity, 2 for precision,  2 for accuracy and 1 for specificity, in order to classify results of the algorithm used. 
+
+
+```{r general conclusion and extra, echo=FALSE, message=FALSE, warning=FALSE, out.width='100%', fig.cap= "all statistics", fig.width=15, fig.height=5}
+#knitr::kable(best_stats , caption = ' best RF stat results')%>% kable_paper("striped", full_width = F)  %>%
+ # column_spec(6, bold = T) %>% row_spec(1, bold = T, color = "black", background = "yellow")
 
 pROC_svm_rbf <- roc(df_rbf$labels,df_rbf$predictions)
 pROC_knn_3_z_new <- roc(c(test_set_z$Class), c(as.numeric(pred_knn_3_z_new)))
 pROC_DT <- roc(c(test_set_z$Class), c(as.numeric(DT_pred)))
 pROC_RF_final <- roc(c(test_set_z$Class), c(as.numeric(final_fit_pred$.pred_class)))
 
-ggroc(list(SVM=pROC_svm_rbf, KNN=pROC_knn_3_z_new, DF=pROC_DT, RF=pROC_RF_final))+labs(title = "all algotithms")
+roc_results<- ggroc(list(DT=pROC_DT, KNN=pROC_knn_3_z_new,  RF=pROC_RF_final,SVM=pROC_svm_rbf))+labs(title = "ROC: all algotithms")
+
+#print statistics
+best_stats_melt<-cbind(best_stats, method=rownames(best_stats)) %>% 
+  select(method, Accuracy,Sensitivity,Precision,Specificity, General) %>%
+  pivot_longer(., cols = c(Accuracy,Precision,General), 
+               names_to = "statistics", values_to = "percentage")
+
+best_stats_plot<-ggplot(best_stats_melt,aes(x = statistics, y = percentage, fill = method)) + geom_bar(position = 'dodge', stat='identity')+ labs(title = "statistics: all algotithms") + theme(legend.position="right")
+
+all_statistics<-arrangeGrob( best_stats_plot, roc_results+ theme(legend.position="none"), nrow =  1, widths=c(2,1))
+
+ t1 <- ttheme_default(core=list(
+        fg_params=list(fontface=c("plain","bold",rep("plain", 2), "bold.italic")),
+        bg_params = list(fill=c(blues9[1],"yellow",blues9[3:4]),
+                         alpha = rep(c(1,0.5), each=5))
+        ),
+        colhead=list(fg_params=list(col="navyblue", fontface="bold.italic")),
+        rowhead=list(fg_params=list(col="navyblue", fontface="bold")), base_size = 10)
+grid.arrange(tableGrob(best_stats, theme = t1), all_statistics)
 ```
 
-To summarize, our dataset is composed of 196 patients:98 sicks and 98 healthy.
-There are 63 features corresponding to the blood vessels eye pressure which help to determine if a patient has glaucoma. Each feature has its degree of importance, some of them seem to be more important than others. Keeping only important features (based on threshold determine by varImp), we did not observe any improvement in the patient classification. Moreover, we observed that some features highly correlate. Unfortunately, after deleting highly correlated features, we did not observe a major improvement in the patient classification.Thereby, we decided to keep the 63 features. 
-Before to test the different algorithms, we defined a weight for each variable allowing to evaluate the predictions: 3 for sensitivity, 2 for precision,  2 for accuracy and 1 for specificity, in order to classify results of the algorithm used. 
+The last figure shows all statistics according to algorithms (showing the best result of each algorithm) on the left, and a ROC plot (sensitivity by specificity) on the right. 
+We observe that KNN algorithm gives the best sensitivity score (0.92), so the highest rate of true positive cases, which is the most important variable.About the precision, (true predicted glaucoma/predicted glaucoma), type I error, KNN algorithm gives the better score (0.92) followed by DT algorithm (0.913). About the accurency (true prediction/ all prediction), proportion of correct prediction, KNN gives the best score again (0.92) follwed by DT algorithm (0.88). Fianlly, about the specificity, (true predicted healthy/healthy), KNN and DT algorithm give the same score (0.92). Combining all together, KNN algorithm gives the best predictions followed by decision tree algorithm. SVM and random forest give similar score of predictions, lower than KNN and decision tree.
 
-The last figure showing the sensitivity and the specificity help us to compare the different algorithm choosen in this project. We observe that KNN algorithm gives the best sensitivity score (0.92), so the highest rate of true positive cases, which is the most important variable.About the precision, (true predicted glaucoma/predicted glaucoma), type I error, KNN algorithm gives the better score (0.92) followed by DT algorithm (0.913). About the accurency (true prediction/ all prediction), proportion of correct prediction, KNN gives the best score again (0.92) follwed by DT algorithm (0.88). Fianlly, about the specificity, (true predicted healthy/healthy), KNN and DT algorithm give the same score (0.92). Combining all together, KNN algorithm gives the best predictions followed by decision tree algorithm. SVM and random forest give similar score of predictions, lower than KNN and decision tree.
-
- 
+The upper table is the statistic results of all algorithms (in numbers). We can see that the SVM ans the RF yielded the same result, which was the lowest. Nest we have the DT, which has the same sensitibity, a bit higher ccuracy, and much higher precision and specificity. The specificity (92%) was highest in both the DT and the KNN, and in all aspects the hoghest result we got was when using the KNN algorithm on scaled, selected (without highly correlated data) data. 
